@@ -21,4 +21,14 @@
         <item>texture_view</item>
         <item>pixel_copy</item>
     </string-array>
+
+    <string-array name="engine_entries">
+        <item>Классический</item>
+        <item>Новый (v2)</item>
+    </string-array>
+
+    <string-array name="engine_values">
+        <item>classic</item>
+        <item>v2</item>
+    </string-array>
 </resources>

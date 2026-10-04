@@ -79,6 +79,45 @@
         android:entryValues="@array/capture_mode_values"
         android:defaultValue="auto" />
 
+    <PreferenceCategory android:title="Движок подсветки">
+        <ListPreference
+            android:key="ambilight_engine"
+            android:title="Движок подсветки"
+            android:summary="%s"
+            android:entries="@array/engine_entries"
+            android:entryValues="@array/engine_values"
+            android:defaultValue="classic" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Новый движок (v2)">
+        <EditTextPreference
+            android:key="v2_smoothing"
+            android:title="Плавность v2 (0-100)"
+            android:summary="Работает только в новом движке"
+            android:defaultValue="50"
+            android:inputType="number" />
+
+        <EditTextPreference
+            android:key="v2_saturation"
+            android:title="Насыщенность v2 (%)"
+            android:summary="100 = как на экране, больше = ярче цвета"
+            android:defaultValue="115"
+            android:inputType="number" />
+
+        <EditTextPreference
+            android:key="v2_black_threshold"
+            android:title="Порог чёрного v2 (0-255)"
+            android:summary="Зоны темнее этого значения гасятся"
+            android:defaultValue="15"
+            android:inputType="number" />
+
+        <SwitchPreferenceCompat
+            android:key="v2_detect_bars"
+            android:title="Определять чёрные полосы"
+            android:summary="Для фильмов 21:9 с полосами, вшитыми в видео"
+            android:defaultValue="false" />
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="Зоны захвата">
         <EditTextPreference
             android:key="margin_x"
