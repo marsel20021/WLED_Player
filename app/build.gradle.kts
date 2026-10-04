@@ -10,14 +10,32 @@ android {
         applicationId = "com.marsel.wledplayer"
         minSdk = 21
         targetSdk = 34
-        versionCode = 8
-        versionName = "1.9"
+        // На GitHub номер версии подставляется автоматически (см. .github/workflows/release.yml).
+        // При сборке на компьютере остаются значения справа от «?:».
+        versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 8
+        versionName = System.getenv("VERSION_NAME") ?: "1.9"
+    }
+
+    // Подпись релиза. На GitHub ключ приходит из секретов; на компьютере этот блок не используется.
+    val keystorePath = System.getenv("KEYSTORE_PATH")
+    signingConfigs {
+        if (keystorePath != null) {
+            create("release") {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (keystorePath != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
     compileOptions {
