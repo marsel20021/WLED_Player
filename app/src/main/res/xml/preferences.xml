@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory android:title="Подключение">
+        <EditTextPreference
+            android:key="wled_ip"
+            android:title="IP адрес ESP32"
+            android:summary="Пример: 192.168.1.110"
+            android:defaultValue="192.168.1.110" />
+
+        <EditTextPreference
+            android:key="udp_port"
+            android:title="UDP Порт"
+            android:summary="Обычно 21324 или 4048"
+            android:defaultValue="4048"
+            android:inputType="number" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Настройка изображения">
+
+        <!-- ПРОСТОЙ ВВОД ЧИСЛА ВМЕСТО ПРОБЛЕМНОГО ПОЛЗУНКА -->
+        <EditTextPreference
+            android:key="buffer_size_sec"
+            android:title="Размер буфера 4K (секунд)"
+            android:summary="Рекомендуется от 50 до 120"
+            android:defaultValue="50"
+            android:inputType="number" />
+
+        <EditTextPreference
+            android:key="brightness"
+            android:title="Яркость (0-100)"
+            android:defaultValue="100"
+            android:inputType="number" />
+
+        <EditTextPreference
+            android:key="gamma"
+            android:title="Гамма (10-30)"
+            android:summary="Контрастность"
+            android:defaultValue="22"
+            android:inputType="number" />
+
+        <EditTextPreference
+            android:key="fps"
+            android:title="Ограничение FPS"
+            android:defaultValue="30"
+            android:inputType="number" />
+
+        <EditTextPreference
+            android:key="smoothing"
+            android:title="Плавность (0-100)"
+            android:defaultValue="50"
+            android:inputType="number" />
+
+        <EditTextPreference
+            android:key="black_threshold"
+            android:title="Порог черного (0-255)"
+            android:summary="Для фильтрации темных сцен"
+            android:defaultValue="15"
+            android:inputType="number" />
+
+        <SwitchPreferenceCompat
+            android:key="use_v2"
+            android:title="Использовать протокол V2"
+            android:defaultValue="true" />
+    </PreferenceCategory>
+
+    <SwitchPreferenceCompat
+        android:key="ambilight_enabled"
+        android:title="Подсветка WLED"
+        android:summary="Полностью включает/выключает синхронизацию с лентой"
+        android:defaultValue="true" />
+
+    <ListPreference
+        android:key="capture_mode"
+        android:title="Режим захвата кадра"
+        android:summary="%s"
+        android:entries="@array/capture_mode_entries"
+        android:entryValues="@array/capture_mode_values"
+        android:defaultValue="auto" />
+
+    <PreferenceCategory android:title="Зоны захвата">
+        <EditTextPreference
+            android:key="margin_x"
+            android:title="Отступ слева/справа (%)"
+            android:defaultValue="2"
+            android:inputType="number" />
+
+        <EditTextPreference
+            android:key="margin_y"
+            android:title="Отступ сверху/снизу (%)"
+            android:defaultValue="2"
+            android:inputType="number" />
+
+        <EditTextPreference
+            android:key="capture_depth"
+            android:title="Глубина захвата (%)"
+            android:defaultValue="5"
+            android:inputType="number" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Геометрия">
+        <EditTextPreference
+            android:key="leds_top"
+            android:title="Светодиодов сверху"
+            android:defaultValue="15"
+            android:inputType="number" />
+
+        <EditTextPreference
+            android:key="leds_bottom"
+            android:title="Светодиодов снизу"
+            android:defaultValue="15"
+            android:inputType="number" />
+
+        <EditTextPreference
+            android:key="leds_left"
+            android:title="Светодиодов слева"
+            android:defaultValue="10"
+            android:inputType="number" />
+
+        <EditTextPreference
+            android:key="leds_right"
+            android:title="Светодиодов справа"
+            android:defaultValue="10"
+            android:inputType="number" />
+
+        <ListPreference
+            android:key="direction"
+            android:title="Направление"
+            android:entries="@array/direction_entries"
+            android:entryValues="@array/direction_values"
+            android:defaultValue="0" />
+
+        <EditTextPreference
+            android:key="led_offset"
+            android:title="Смещение (Offset)"
+            android:defaultValue="0"
+            android:inputType="number" />
+    </PreferenceCategory>
+
+</PreferenceScreen>
