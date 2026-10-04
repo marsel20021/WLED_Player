@@ -1,0 +1,81 @@
+name: Сборка и релиз
+
+# Любой пуш в любую ветку собирает подписанный APK.
+#  - пуш в master      -> выкладывается релиз, ТВ предложит обновиться;
+#  - пуш в другую ветку -> APK сохраняется как файл для проверки (в Actions -> Artifacts),
+#                          ТВ про него не узнаёт.
+on:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Получить код
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Установить Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Включить кэш Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Посчитать номер версии
+        run: |
+          # +100, чтобы номер сразу оказался больше, чем у уже установленной версии
+          echo "VERSION_CODE=$((100 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+          echo "VERSION_NAME=2.0.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+
+      - name: Достать ключ подписи
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::Нет секрета KEYSTORE_BASE64. Добавь его: Settings -> Secrets and variables -> Actions"
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+
+      - name: Собрать подписанный APK
+        env:
+          KEYSTORE_PATH: ${{ runner.temp }}/release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --stacktrace
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk dist/wled-player.apk
+
+      - name: Сохранить APK для проверки (это не релиз)
+        if: github.ref != 'refs/heads/master'
+        uses: actions/upload-artifact@v4
+        with:
+          name: wled-player-${{ env.VERSION_NAME }}
+          path: dist/wled-player.apk
+
+      - name: Выложить релиз
+        if: github.ref == 'refs/heads/master'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v${VERSION_CODE}"
+          # Текст для окна обновления: описание последнего обычного коммита (не слияния)
+          NEWS="$(git log -1 --no-merges --pretty=%s)"
+          NEWS="${NEWS:-Новая версия}"
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/wled-player.apk"
+          jq -n --argjson code "$VERSION_CODE" --arg url "$URL" --arg news "$NEWS" \
+            '{versionCode: $code, apkUrl: $url, whatsNew: $news}' > dist/update.json
+          gh release create "$TAG" dist/wled-player.apk dist/update.json \
+            --title "WLED Player ${VERSION_NAME}" --notes "$NEWS" --latest --target "$GITHUB_SHA"
