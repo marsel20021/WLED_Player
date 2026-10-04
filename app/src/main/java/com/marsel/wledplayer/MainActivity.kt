@@ -220,6 +220,11 @@ class MainActivity : AppCompatActivity() {
                         put("ambilightEnabled", rawBooleanValue(appPrefs, "ambilight_enabled", true))
                         put("captureMode", rawStringValue(appPrefs, "capture_mode", "auto"))
                         put("bufferSizeSec", rawStringValue(appPrefs, "buffer_size_sec", "50").toIntOrNull() ?: 50)
+                        put("ambilightEngine", rawStringValue(appPrefs, "ambilight_engine", "classic"))
+                        put("v2Smoothing", rawStringValue(appPrefs, "v2_smoothing", "50").toIntOrNull() ?: 50)
+                        put("v2Saturation", rawStringValue(appPrefs, "v2_saturation", "115").toIntOrNull() ?: 115)
+                        put("v2BlackThreshold", rawStringValue(appPrefs, "v2_black_threshold", "15").toIntOrNull() ?: 15)
+                        put("v2DetectBars", rawBooleanValue(appPrefs, "v2_detect_bars", false))
                     }
                     try { send(Frame.Text(snapshot.toString())) } catch (e: Exception) { }
 
@@ -308,6 +313,16 @@ class MainActivity : AppCompatActivity() {
                                             if (json.has("ambilightEnabled")) editor.putBoolean("ambilight_enabled", json.getBoolean("ambilightEnabled"))
 
                                             if (json.has("bufferSizeSec")) editor.putString("buffer_size_sec", json.getInt("bufferSizeSec").toString())
+
+                                            // Движок подсветки: допускаем только известные значения
+                                            if (json.has("ambilightEngine")) {
+                                                val engine = json.getString("ambilightEngine")
+                                                if (engine == "classic" || engine == "v2") editor.putString("ambilight_engine", engine)
+                                            }
+                                            if (json.has("v2Smoothing")) editor.putString("v2_smoothing", json.getInt("v2Smoothing").toString())
+                                            if (json.has("v2Saturation")) editor.putString("v2_saturation", json.getInt("v2Saturation").toString())
+                                            if (json.has("v2BlackThreshold")) editor.putString("v2_black_threshold", json.getInt("v2BlackThreshold").toString())
+                                            if (json.has("v2DetectBars")) editor.putBoolean("v2_detect_bars", json.getBoolean("v2DetectBars"))
 
                                             if (json.has("captureMode")) {
                                                 editor.putString("capture_mode", json.getString("captureMode"))
