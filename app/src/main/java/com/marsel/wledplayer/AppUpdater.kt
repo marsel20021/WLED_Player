@@ -23,8 +23,9 @@ import java.net.URL
 
 class AppUpdater(private val context: Context) {
 
-    // TODO: Замени на прямую ссылку к твоему update.json
-    private val updateUrl = "http://217.144.189.172:45678/a8f3b9k2q7x1/update.json"
+    // update.json и APK выкладывает GitHub Actions при каждом пуше в master
+    // (см. .github/workflows/release.yml). Адрес «latest» всегда ведёт на последний релиз.
+    private val updateUrl = "https://github.com/marsel20021/WLED_Player/releases/latest/download/update.json"
 
     fun check() {
         Log.d("AppUpdater", "--- Запуск проверки обновлений ---")
@@ -32,8 +33,8 @@ class AppUpdater(private val context: Context) {
             try {
                 Log.d("AppUpdater", "Попытка подключения к: $updateUrl")
                 val connection = URL(updateUrl).openConnection() as HttpURLConnection
-                connection.connectTimeout = 5000
-                connection.readTimeout = 5000
+                connection.connectTimeout = 10000
+                connection.readTimeout = 10000
 
                 if (connection.responseCode == HttpURLConnection.HTTP_OK) {
                     val response = connection.inputStream.bufferedReader().readText()

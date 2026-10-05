@@ -13,3 +13,11 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Ключи подписи: никогда не добавлять в git
+*.jks
+*.keystore
+keystore.properties
+
+# Готовые APK собирает GitHub, в репозитории они не нужны
+/app/release/
