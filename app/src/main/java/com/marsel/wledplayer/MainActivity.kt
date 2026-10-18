@@ -1,14 +1,19 @@
 package com.marsel.wledplayer
 
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.os.Bundle
+import android.os.PowerManager
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import androidx.activity.OnBackPressedCallback
 import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.media3.common.ColorInfo
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
@@ -53,6 +58,11 @@ class MainActivity : AppCompatActivity() {
     private var returnResultRequested = false
 
     private lateinit var appPrefs: SharedPreferences
+
+    // Закрытие плеера при выключении ТВ (режим ожидания)
+    private var closingForStandby = false
+    private var openingSettings = false
+    private var screenOffReceiver: BroadcastReceiver? = null
 
     companion object {
         private const val TAG = "WledPlayer"
@@ -99,6 +109,7 @@ class MainActivity : AppCompatActivity() {
         val btnSettings = findViewById<Button>(R.id.btnSettings)
 
         btnSettings.setOnClickListener {
+            openingSettings = true // уход в настройки - это не выключение ТВ
             startActivity(Intent(this, SettingsActivity::class.java))
         }
 
@@ -113,9 +124,18 @@ class MainActivity : AppCompatActivity() {
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                playlistController?.finishOnUserExit(player, returnResultRequested)
+                // Первое «назад» только прячет панель перемотки и кнопку настроек.
+                // Выход - когда панели уже не видно.
+                val activeView = if (playerViewSurface.visibility == View.VISIBLE) playerViewSurface else playerViewTexture
+                if (activeView.isControllerFullyVisible) {
+                    activeView.hideController()
+                } else {
+                    playlistController?.finishOnUserExit(player, returnResultRequested)
+                }
             }
         })
+
+        registerScreenOffReceiver()
 
         initializePlayer(intent)
         ambilightController.start()
@@ -185,8 +205,53 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** Экран погас (ТВ ушёл в ожидание): штатно закрываем плеер. */
+    private fun registerScreenOffReceiver() {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                closeForStandby()
+            }
+        }
+        screenOffReceiver = receiver
+        ContextCompat.registerReceiver(
+            this, receiver, IntentFilter(Intent.ACTION_SCREEN_OFF), ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+    }
+
+    /**
+     * Останавливает звук и закрывает плеер так же, как кнопка «назад»:
+     * позиция и длительность уходят вызвавшему приложению (Vokino) для таймкодов.
+     */
+    private fun closeForStandby() {
+        if (closingForStandby || isFinishing) return
+        closingForStandby = true
+        player?.pause() // звук глохнет сразу
+        playlistController?.finishOnUserExit(player, returnResultRequested)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        openingSettings = false
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (isChangingConfigurations || isFinishing || openingSettings) return
+
+        // Окно ушло с экрана. Звук в фоне телевизору не нужен - ставим на паузу.
+        player?.pause()
+
+        // Если при этом устройство ушло в сон (не "Домой", не настройки) - закрываем плеер.
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        if (!pm.isInteractive) closeForStandby()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        screenOffReceiver?.let {
+            try { unregisterReceiver(it) } catch (e: Exception) { }
+        }
+        screenOffReceiver = null
         ambilightController.release()
         smartAudioController.release()
         serverEngine?.stop(gracePeriodMillis = 200, timeoutMillis = 1000)
