@@ -7,9 +7,11 @@ import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.os.Bundle
 import android.os.PowerManager
+import android.os.SystemClock
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
@@ -60,12 +62,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var appPrefs: SharedPreferences
 
     // Закрытие плеера при выключении ТВ (режим ожидания)
+    private var lastBackPressAt = 0L
     private var closingForStandby = false
     private var openingSettings = false
     private var screenOffReceiver: BroadcastReceiver? = null
 
     companion object {
         private const val TAG = "WledPlayer"
+        private const val EXIT_CONFIRM_MS = 2000L // за сколько секунд нужно нажать «назад» второй раз
     }
 
     private fun hideSystemBars() {
@@ -124,13 +128,19 @@ class MainActivity : AppCompatActivity() {
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                // Первое «назад» только прячет панель перемотки и кнопку настроек.
-                // Выход - когда панели уже не видно.
+                // 1) Панель видна - «назад» просто прячет её (и кнопку настроек).
+                // 2) Панели нет - первое «назад» просит подтверждение, второе (в течение 2 с) закрывает плеер.
                 val activeView = if (playerViewSurface.visibility == View.VISIBLE) playerViewSurface else playerViewTexture
                 if (activeView.isControllerFullyVisible) {
                     activeView.hideController()
-                } else {
+                    return
+                }
+                val now = SystemClock.elapsedRealtime()
+                if (now - lastBackPressAt <= EXIT_CONFIRM_MS) {
                     playlistController?.finishOnUserExit(player, returnResultRequested)
+                } else {
+                    lastBackPressAt = now
+                    Toast.makeText(this@MainActivity, "Нажмите «назад» ещё раз для выхода", Toast.LENGTH_SHORT).show()
                 }
             }
         })
