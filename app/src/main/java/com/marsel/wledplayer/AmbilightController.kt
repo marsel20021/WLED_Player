@@ -12,7 +12,7 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 /**
- * Выбирает, какой движок подсветки сейчас работает: классический или новый (v2).
+ * Выбирает, какой движок подсветки сейчас работает: классический, новый (v2) или тестовый (Lab).
  *
  * Выбор лежит в настройке «ambilight_engine» (по умолчанию классический). Менять её можно в
  * любой момент, в том числе во время просмотра: прежний движок полностью останавливается
@@ -108,10 +108,10 @@ class AmbilightController(
     }
 
     private fun startEngine(kind: String) {
-        val created: AmbilightEngine = if (kind == ENGINE_V2) {
-            AmbilightEngineV2(activity, prefs)
-        } else {
-            ClassicAmbilightEngine(activity, playerView, prefs)
+        val created: AmbilightEngine = when (kind) {
+            ENGINE_V2 -> AmbilightEngineV2(activity, prefs)
+            ENGINE_LAB -> AmbilightEngineLab(activity, prefs)
+            else -> ClassicAmbilightEngine(activity, playerView, prefs)
         }
         player?.let { created.attachPlayer(it) }
         created.updatePlayerView(playerView, isSurface)
@@ -120,7 +120,11 @@ class AmbilightController(
     }
 
     private fun wantedKind(): String =
-        if (rawStringValue(prefs, KEY_ENGINE, ENGINE_CLASSIC) == ENGINE_V2) ENGINE_V2 else ENGINE_CLASSIC
+        when (rawStringValue(prefs, KEY_ENGINE, ENGINE_CLASSIC)) {
+            ENGINE_V2 -> ENGINE_V2
+            ENGINE_LAB -> ENGINE_LAB
+            else -> ENGINE_CLASSIC
+        }
 
     private fun intPref(key: String, default: Int): Int =
         rawStringValue(prefs, key, default.toString()).toIntOrNull() ?: default
@@ -129,5 +133,6 @@ class AmbilightController(
         const val KEY_ENGINE = "ambilight_engine"
         const val ENGINE_CLASSIC = "classic"
         const val ENGINE_V2 = "v2"
+        const val ENGINE_LAB = "lab"
     }
 }

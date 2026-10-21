@@ -118,6 +118,74 @@
             android:defaultValue="false" />
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="Тестовый движок (Lab)">
+        <EditTextPreference
+            android:key="lab_vivid"
+            android:title="Яркость цвета Lab (0-100)"
+            android:summary="0 = как на экране, 100 = очень сочно. Оттенок не уезжает"
+            android:defaultValue="50"
+            android:inputType="number" />
+
+        <EditTextPreference
+            android:key="lab_speed"
+            android:title="Скорость реакции Lab (0-100)"
+            android:summary="Больше = быстрее следует за картинкой, меньше = плавнее"
+            android:defaultValue="50"
+            android:inputType="number" />
+
+        <EditTextPreference
+            android:key="lab_edge"
+            android:title="Вес к краю Lab (0-100)"
+            android:summary="Больше = лента берёт цвет в основном у самого края кадра"
+            android:defaultValue="50"
+            android:inputType="number" />
+
+        <EditTextPreference
+            android:key="lab_depth"
+            android:title="Глубина захвата Lab (5-50 %)"
+            android:summary="Как далеко от края вглубь кадра учитывается цвет"
+            android:defaultValue="22"
+            android:inputType="number" />
+
+        <ListPreference
+            android:key="lab_highlight"
+            android:title="Яркие блики Lab"
+            android:summary="%s"
+            android:entries="@array/lab_highlight_entries"
+            android:entryValues="@array/lab_highlight_values"
+            android:defaultValue="soft" />
+
+        <ListPreference
+            android:key="lab_glow"
+            android:title="Фоновый свет в темноте Lab"
+            android:summary="%s"
+            android:entries="@array/lab_glow_entries"
+            android:entryValues="@array/lab_glow_values"
+            android:defaultValue="mid" />
+
+        <ListPreference
+            android:key="lab_jitter"
+            android:title="Защита от дрожи Lab"
+            android:summary="%s"
+            android:entries="@array/lab_jitter_entries"
+            android:entryValues="@array/lab_jitter_values"
+            android:defaultValue="mid" />
+
+        <ListPreference
+            android:key="lab_fps"
+            android:title="Частота вывода Lab"
+            android:summary="%s"
+            android:entries="@array/lab_fps_entries"
+            android:entryValues="@array/lab_fps_values"
+            android:defaultValue="60" />
+
+        <SwitchPreferenceCompat
+            android:key="lab_detect_bars"
+            android:title="Определять чёрные полосы Lab"
+            android:summary="Для фильмов 21:9 с полосами, вшитыми в видео"
+            android:defaultValue="false" />
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="Зоны захвата">
         <EditTextPreference
             android:key="margin_x"
