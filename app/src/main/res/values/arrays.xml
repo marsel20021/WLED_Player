@@ -25,10 +25,56 @@
     <string-array name="engine_entries">
         <item>Классический</item>
         <item>Новый (v2)</item>
+        <item>Lab (тестовый)</item>
     </string-array>
 
     <string-array name="engine_values">
         <item>classic</item>
         <item>v2</item>
+        <item>lab</item>
+    </string-array>
+
+    <string-array name="lab_highlight_entries">
+        <item>Приглушать (мягко)</item>
+        <item>Акцент без растекания</item>
+    </string-array>
+    <string-array name="lab_highlight_values">
+        <item>soft</item>
+        <item>accent</item>
+    </string-array>
+
+    <string-array name="lab_glow_entries">
+        <item>Выключен</item>
+        <item>Едва заметный</item>
+        <item>Средний</item>
+        <item>Заметный</item>
+        <item>Максимум</item>
+    </string-array>
+    <string-array name="lab_glow_values">
+        <item>off</item>
+        <item>low</item>
+        <item>mid</item>
+        <item>high</item>
+        <item>max</item>
+    </string-array>
+
+    <string-array name="lab_jitter_entries">
+        <item>Выключена</item>
+        <item>Средняя</item>
+        <item>Сильная</item>
+    </string-array>
+    <string-array name="lab_jitter_values">
+        <item>off</item>
+        <item>mid</item>
+        <item>high</item>
+    </string-array>
+
+    <string-array name="lab_fps_entries">
+        <item>60 Гц (плавнее, дизеринг в темноте)</item>
+        <item>30 Гц</item>
+    </string-array>
+    <string-array name="lab_fps_values">
+        <item>60</item>
+        <item>30</item>
     </string-array>
 </resources>

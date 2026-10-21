@@ -300,6 +300,15 @@ class MainActivity : AppCompatActivity() {
                         put("v2Saturation", rawStringValue(appPrefs, "v2_saturation", "115").toIntOrNull() ?: 115)
                         put("v2BlackThreshold", rawStringValue(appPrefs, "v2_black_threshold", "15").toIntOrNull() ?: 15)
                         put("v2DetectBars", rawBooleanValue(appPrefs, "v2_detect_bars", false))
+                        put("labVivid", rawStringValue(appPrefs, "lab_vivid", "50").toIntOrNull() ?: 50)
+                        put("labSpeed", rawStringValue(appPrefs, "lab_speed", "50").toIntOrNull() ?: 50)
+                        put("labEdge", rawStringValue(appPrefs, "lab_edge", "50").toIntOrNull() ?: 50)
+                        put("labDepth", rawStringValue(appPrefs, "lab_depth", "22").toIntOrNull() ?: 22)
+                        put("labHighlight", rawStringValue(appPrefs, "lab_highlight", "soft"))
+                        put("labGlow", rawStringValue(appPrefs, "lab_glow", "mid"))
+                        put("labJitter", rawStringValue(appPrefs, "lab_jitter", "mid"))
+                        put("labFps", rawStringValue(appPrefs, "lab_fps", "60"))
+                        put("labDetectBars", rawBooleanValue(appPrefs, "lab_detect_bars", false))
                     }
                     try { send(Frame.Text(snapshot.toString())) } catch (e: Exception) { }
 
@@ -392,12 +401,35 @@ class MainActivity : AppCompatActivity() {
                                             // Движок подсветки: допускаем только известные значения
                                             if (json.has("ambilightEngine")) {
                                                 val engine = json.getString("ambilightEngine")
-                                                if (engine == "classic" || engine == "v2") editor.putString("ambilight_engine", engine)
+                                                if (engine == "classic" || engine == "v2" || engine == "lab") editor.putString("ambilight_engine", engine)
                                             }
                                             if (json.has("v2Smoothing")) editor.putString("v2_smoothing", json.getInt("v2Smoothing").toString())
                                             if (json.has("v2Saturation")) editor.putString("v2_saturation", json.getInt("v2Saturation").toString())
                                             if (json.has("v2BlackThreshold")) editor.putString("v2_black_threshold", json.getInt("v2BlackThreshold").toString())
                                             if (json.has("v2DetectBars")) editor.putBoolean("v2_detect_bars", json.getBoolean("v2DetectBars"))
+
+                                            // Lab: числа с проверкой границ, выбор только из известных значений
+                                            if (json.has("labVivid")) editor.putString("lab_vivid", json.getInt("labVivid").coerceIn(0, 100).toString())
+                                            if (json.has("labSpeed")) editor.putString("lab_speed", json.getInt("labSpeed").coerceIn(0, 100).toString())
+                                            if (json.has("labEdge")) editor.putString("lab_edge", json.getInt("labEdge").coerceIn(0, 100).toString())
+                                            if (json.has("labDepth")) editor.putString("lab_depth", json.getInt("labDepth").coerceIn(5, 50).toString())
+                                            if (json.has("labHighlight")) {
+                                                val v = json.getString("labHighlight")
+                                                if (v == "soft" || v == "accent") editor.putString("lab_highlight", v)
+                                            }
+                                            if (json.has("labGlow")) {
+                                                val v = json.getString("labGlow")
+                                                if (v in listOf("off", "low", "mid", "high", "max")) editor.putString("lab_glow", v)
+                                            }
+                                            if (json.has("labJitter")) {
+                                                val v = json.getString("labJitter")
+                                                if (v == "off" || v == "mid" || v == "high") editor.putString("lab_jitter", v)
+                                            }
+                                            if (json.has("labFps")) {
+                                                val v = json.get("labFps").toString()
+                                                if (v == "30" || v == "60") editor.putString("lab_fps", v)
+                                            }
+                                            if (json.has("labDetectBars")) editor.putBoolean("lab_detect_bars", json.getBoolean("labDetectBars"))
 
                                             if (json.has("captureMode")) {
                                                 editor.putString("capture_mode", json.getString("captureMode"))
