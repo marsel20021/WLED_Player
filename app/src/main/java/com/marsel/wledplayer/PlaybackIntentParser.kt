@@ -14,7 +14,11 @@ data class IncomingPlaylist(
     val startIndex: Int,
     val startPositionMs: Long,
     val headers: Map<String, String>?,
-    val returnResult: Boolean
+    val returnResult: Boolean,
+    /** Название фильма/сериала целиком (extra "title"), даже если у каждой серии есть своё имя. */
+    val movieTitle: String? = null,
+    /** Краткая сводка того, что прислал вызвавший (только имена extras и названия, без ссылок и заголовков). */
+    val intentInfo: String = ""
 )
 
 object PlaybackIntentParser {
@@ -52,8 +56,21 @@ object PlaybackIntentParser {
             startIndex = startIndex,
             startPositionMs = if (position >= 0) position.toLong() else 0L,
             headers = parseHeaders(intent.getStringArrayExtra(EXTRA_HEADERS)),
-            returnResult = intent.getBooleanExtra(EXTRA_RETURN_RESULT, false)
+            returnResult = intent.getBooleanExtra(EXTRA_RETURN_RESULT, false),
+            movieTitle = fallbackTitle?.takeIf { it.isNotBlank() },
+            intentInfo = describe(intent, names, fallbackTitle)
         )
+    }
+
+    /** Без ссылок и заголовков (там могут быть токены): только имена extras и названия. */
+    private fun describe(intent: Intent, names: Array<String>?, title: String?): String {
+        val keys = try {
+            intent.extras?.keySet()?.sorted()?.joinToString(",") ?: ""
+        } catch (e: Exception) {
+            ""
+        }
+        val sample = names?.take(3)?.joinToString(" | ") ?: ""
+        return "keys=[$keys] title=$title names(${names?.size ?: 0})=[$sample]"
     }
 
     @Suppress("DEPRECATION") // getParcelableArrayExtra(String) без Class работает на всех API, просто помечен deprecated с API 33
