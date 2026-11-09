@@ -59,6 +59,10 @@ class MainActivity : AppCompatActivity() {
     private var playlistController: PlaylistController? = null
     private var returnResultRequested = false
 
+    // Название фильма (extra "title" от Vokino) и сводка extras - уходят на пульт для поиска постера
+    private var movieTitle: String? = null
+    private var intentInfo: String = ""
+
     private lateinit var appPrefs: SharedPreferences
 
     // Закрытие плеера при выключении ТВ (режим ожидания)
@@ -211,6 +215,8 @@ class MainActivity : AppCompatActivity() {
 
         if (incoming != null) {
             returnResultRequested = incoming.returnResult
+            movieTitle = incoming.movieTitle
+            intentInfo = incoming.intentInfo
             controller.start(player!!, incoming)
         }
     }
@@ -336,6 +342,8 @@ class MainActivity : AppCompatActivity() {
                                 state.put("positionMs", player?.currentPosition ?: 0L)
                                 state.put("durationMs", player?.duration ?: 0L)
                                 state.put("title", player?.mediaMetadata?.title?.toString() ?: "Без названия")
+                                state.put("movieTitle", movieTitle ?: "")
+                                state.put("intentInfo", intentInfo)
                                 state.put("currentIndex", player?.currentMediaItemIndex ?: 0)
                             }
                             try {
