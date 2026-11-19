@@ -91,7 +91,7 @@ class SettingsActivity : AppCompatActivity() {
                 gravity = Gravity.CENTER
                 setPadding(dz.i(26f), 0, dz.i(26f), 0)
                 isFocusable = true
-                isFocusableInTouchMode = false
+                isFocusableInTouchMode = true
                 setOnFocusChangeListener { _, focused ->
                     if (focused) selectTab(i)
                     styleTabs()
@@ -166,11 +166,32 @@ class SettingsActivity : AppCompatActivity() {
         val rows = SettingsSpec.tabs[tabIndex].rows(engine)
         var focusView: View? = null
         rows.forEach { row ->
-            val v = RowView(row)
-            rowsBox.addView(v, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dz.i(112f)).also { it.bottomMargin = dz.i(20f) })
+            val v = addRow(row)
             if (row.key == focusKey) focusView = v
         }
         focusView?.let { f -> rowsBox.post { f.requestFocus() } }
+    }
+
+    private fun addRow(row: SettingRow): View {
+        val v = RowView(row)
+        rowsBox.addView(v, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dz.i(112f)).also { it.bottomMargin = dz.i(20f) })
+        return v
+    }
+
+    /**
+     * Сменили движок: заново строим только строки под ним. Сама строка выбора остаётся на месте вместе с фокусом,
+     * иначе фокус терялся и панель перескакивала на первую вкладку.
+     */
+    private fun rebuildRowsAfter(key: String) {
+        val engine = rawStringValue(prefs, SettingsSpec.ENGINE_KEY, "classic")
+        val rows = SettingsSpec.tabs[tabIndex].rows(engine)
+        val idx = rows.indexOfFirst { it.key == key }
+        if (idx < 0) {
+            rebuildRows(key)
+            return
+        }
+        while (rowsBox.childCount > idx + 1) rowsBox.removeViewAt(rowsBox.childCount - 1)
+        rows.drop(idx + 1).forEach { addRow(it) }
     }
 
     /** Один ряд: название слева, значение справа. */
@@ -183,7 +204,7 @@ class SettingsActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dz.i(44f), 0, dz.i(40f), 0)
             isFocusable = true
-            isFocusableInTouchMode = false
+            isFocusableInTouchMode = true
             applyBackground(false)
             setOnFocusChangeListener { _, focused -> applyBackground(focused) }
 
@@ -257,7 +278,7 @@ class SettingsActivity : AppCompatActivity() {
                 }
                 is ChoiceRow -> {
                     prefs.edit().putString(row.key, SettingsSpec.nextChoice(row, current(), direction)).apply()
-                    if (row.key == SettingsSpec.ENGINE_KEY) rebuildRows(row.key)
+                    if (row.key == SettingsSpec.ENGINE_KEY) rebuildRowsAfter(row.key)
                 }
                 is TextRow -> {}
             }

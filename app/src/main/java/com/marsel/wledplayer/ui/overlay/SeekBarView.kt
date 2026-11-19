@@ -29,7 +29,7 @@ class SeekBarView(context: Context, private val dz: Dz) : View(context) {
 
     init {
         isFocusable = true
-        isFocusableInTouchMode = false
+        isFocusableInTouchMode = true
     }
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val rect = RectF()

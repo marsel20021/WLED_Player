@@ -38,8 +38,9 @@ class TvRoundButton(
     private var longFired = false
 
     init {
+        // фокус нужен и в режиме касания: на ТВ с указкой окно может остаться в нём, и тогда кнопки не получали бы фокус
         isFocusable = true
-        isFocusableInTouchMode = false
+        isFocusableInTouchMode = true
         isClickable = true
     }
 

@@ -89,7 +89,7 @@ class EpisodeStrip(
             val root = LinearLayout(ctx).apply {
                 orientation = LinearLayout.VERTICAL
                 isFocusable = true
-                isFocusableInTouchMode = false
+                isFocusableInTouchMode = true
                 layoutParams = RecyclerView.LayoutParams(cardW, ViewGroup.LayoutParams.WRAP_CONTENT).also { it.marginEnd = dz.i(28f) }
                 pivotX = 0f
                 pivotY = 0f
