@@ -2,6 +2,15 @@ plugins {
     alias(libs.plugins.android.application)
 }
 
+// Ключи сервисов. На GitHub приходят из секретов, на компьютере берутся из local.properties
+// (этот файл не попадает в git).
+val localProps = java.util.Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+fun secret(envName: String, propName: String): String =
+    (System.getenv(envName) ?: localProps.getProperty(propName) ?: "").trim().replace("\"", "")
+
 android {
     namespace = "com.marsel.wledplayer"
     compileSdk = 34
@@ -14,6 +23,15 @@ android {
         // При сборке на компьютере остаются значения справа от «?:».
         versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 8
         versionName = System.getenv("VERSION_NAME") ?: "1.9"
+
+        buildConfigField("String", "KINOPOISK_TOKEN", "\"${secret("KINOPOISK_TOKEN", "kinopoisk.token")}\"")
+        buildConfigField("String", "KINOPOISKDEV_TOKEN", "\"${secret("KINOPOISKDEV_TOKEN", "kinopoiskdev.token")}\"")
+        buildConfigField("boolean", "IS_BETA", "false")
+        manifestPlaceholders["appLabel"] = "WLED Player"
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     // Подпись релиза. На GitHub ключ приходит из секретов; на компьютере этот блок не используется.
@@ -35,6 +53,21 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (keystorePath != null) {
                 signingConfig = signingConfigs.getByName("release")
+            }
+        }
+
+        // Бета: ставится рядом с релизом как отдельное приложение, релиз не трогает.
+        // Без ключа релиза (на компьютере) подписывается отладочным ключом Android Studio.
+        create("beta") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".beta"
+            versionNameSuffix = "-beta"
+            buildConfigField("boolean", "IS_BETA", "true")
+            manifestPlaceholders["appLabel"] = "WLED Player β"
+            signingConfig = if (keystorePath != null) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
             }
         }
     }

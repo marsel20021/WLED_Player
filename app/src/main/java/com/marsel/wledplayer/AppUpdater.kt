@@ -28,6 +28,8 @@ class AppUpdater(private val context: Context) {
     private val updateUrl = "https://github.com/marsel20021/WLED_Player/releases/latest/download/update.json"
 
     fun check() {
+        // В бете обновления не ищем: она ставится рядом с релизом, а не вместо него
+        if (BuildConfig.IS_BETA) return
         Log.d("AppUpdater", "--- Запуск проверки обновлений ---")
         CoroutineScope(Dispatchers.IO).launch {
             try {

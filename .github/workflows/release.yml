@@ -2,8 +2,8 @@ name: Сборка и релиз
 
 # Любой пуш в любую ветку собирает подписанный APK.
 #  - пуш в master      -> выкладывается релиз, ТВ предложит обновиться;
-#  - пуш в другую ветку -> APK сохраняется как файл для проверки (в Actions -> Artifacts),
-#                          ТВ про него не узнаёт.
+#  - пуш в другую ветку -> APK и бета-APK сохраняются как файлы для проверки (в Actions -> Artifacts),
+#                          ТВ про них не узнаёт.
 on:
   push:
     branches: ['**']
@@ -36,6 +36,22 @@ jobs:
           echo "VERSION_CODE=$((100 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
           echo "VERSION_NAME=2.0.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
 
+      - name: Проверить ключи сервисов (значения не показываются)
+        env:
+          KINOPOISK_TOKEN: ${{ secrets.KINOPOISK_TOKEN }}
+          KINOPOISKDEV_TOKEN: ${{ secrets.KINOPOISKDEV_TOKEN }}
+        run: |
+          for name in KINOPOISK_TOKEN KINOPOISKDEV_TOKEN; do
+            value="${!name}"
+            if [ -z "$value" ]; then
+              echo "::warning::$name: пусто (секрет не создан или пустой)"
+            elif [[ "$value" =~ [[:space:]] ]]; then
+              echo "::warning::$name: задан, но внутри пробел или перевод строки, длина ${#value}"
+            else
+              echo "$name: задан, длина ${#value}"
+            fi
+          done
+
       - name: Достать ключ подписи
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -52,11 +68,34 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KINOPOISK_TOKEN: ${{ secrets.KINOPOISK_TOKEN }}
+          KINOPOISKDEV_TOKEN: ${{ secrets.KINOPOISKDEV_TOKEN }}
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease --stacktrace
           mkdir -p dist
           cp app/build/outputs/apk/release/app-release.apk dist/wled-player.apk
+
+      # Бета ставится рядом с релизом (другое имя пакета). Собирается только не для master.
+      - name: Собрать бета-вариант
+        if: github.ref != 'refs/heads/master'
+        env:
+          KEYSTORE_PATH: ${{ runner.temp }}/release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KINOPOISK_TOKEN: ${{ secrets.KINOPOISK_TOKEN }}
+          KINOPOISKDEV_TOKEN: ${{ secrets.KINOPOISKDEV_TOKEN }}
+        run: |
+          ./gradlew assembleBeta --stacktrace
+          cp app/build/outputs/apk/beta/app-beta.apk dist/wled-player-beta.apk
+
+      - name: Сохранить бету (ставится рядом с релизом)
+        if: github.ref != 'refs/heads/master'
+        uses: actions/upload-artifact@v4
+        with:
+          name: wled-player-beta-${{ env.VERSION_NAME }}
+          path: dist/wled-player-beta.apk
 
       - name: Сохранить APK для проверки (это не релиз)
         if: github.ref != 'refs/heads/master'
