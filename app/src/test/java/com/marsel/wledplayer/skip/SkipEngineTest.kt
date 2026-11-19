@@ -294,7 +294,7 @@ class SkipEngineTest {
     @Test
     fun `на последней серии титры не пропускаем`() {
         introResult = IntroResult.Found(
-            SkipTimeline(listOf(SkipSegment(SkipKind.CREDITS, 1_332_000, null, 3, "T"))
+            SkipTimeline(listOf(SkipSegment(SkipKind.CREDITS, 1_332_000, null, 3, "T")))
         )
         val e = engine()
         e.evaluate(input(0, 0, index = 9, title = "10 серия"))
@@ -308,7 +308,7 @@ class SkipEngineTest {
     @Test
     fun `титры до конца на обычной серии - следующая серия`() {
         introResult = IntroResult.Found(
-            SkipTimeline(listOf(SkipSegment(SkipKind.CREDITS, 1_332_000, null, 3, "T"))
+            SkipTimeline(listOf(SkipSegment(SkipKind.CREDITS, 1_332_000, null, 3, "T")))
         )
         val e = engine()
         e.evaluate(input(0, 0))
