@@ -22,7 +22,7 @@
         android:usesCleartextTraffic="true">
 
         <activity
-            android:name=".MainActivity"
+            android:name=".ui.MainActivity"
             android:exported="true"
             android:screenOrientation="landscape"
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode">
@@ -51,7 +51,7 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".SettingsActivity" android:theme="@style/Theme.AppCompat.DayNight" />
+        <activity android:name=".ui.SettingsActivity" android:theme="@style/Theme.AppCompat.DayNight" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

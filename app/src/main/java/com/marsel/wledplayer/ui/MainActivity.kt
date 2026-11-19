@@ -1,4 +1,4 @@
-package com.marsel.wledplayer
+package com.marsel.wledplayer.ui
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -42,6 +42,14 @@ import io.ktor.server.routing.get
 import io.ktor.server.response.respondText
 import io.ktor.http.ContentType
 import io.ktor.server.application.call
+import com.marsel.wledplayer.R
+import com.marsel.wledplayer.ambilight.AmbilightController
+import com.marsel.wledplayer.audio.SmartAudioController
+import com.marsel.wledplayer.data.rawBooleanValue
+import com.marsel.wledplayer.data.rawStringValue
+import com.marsel.wledplayer.player.PlaybackIntentParser
+import com.marsel.wledplayer.player.PlaylistController
+import com.marsel.wledplayer.update.AppUpdater
 
 @OptIn(UnstableApi::class)
 class MainActivity : AppCompatActivity() {

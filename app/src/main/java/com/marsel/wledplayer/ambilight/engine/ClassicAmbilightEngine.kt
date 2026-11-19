@@ -1,4 +1,4 @@
-package com.marsel.wledplayer
+package com.marsel.wledplayer.ambilight.engine
 
 import android.app.Activity
 import android.content.SharedPreferences
@@ -32,6 +32,10 @@ import java.net.DatagramSocket
 import java.net.InetAddress
 import kotlin.coroutines.resume
 import kotlin.math.max
+import com.marsel.wledplayer.ambilight.AmbilightController
+import com.marsel.wledplayer.ambilight.AmbilightEngine
+import com.marsel.wledplayer.data.rawBooleanValue
+import com.marsel.wledplayer.data.rawStringValue
 
 /**
  * Классический движок подсветки. Логика не менялась: это прежний AmbilightController,

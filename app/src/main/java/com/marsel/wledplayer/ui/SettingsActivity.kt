@@ -1,10 +1,11 @@
-package com.marsel.wledplayer
+package com.marsel.wledplayer.ui
 
 import android.os.Bundle
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.preference.PreferenceFragmentCompat
+import com.marsel.wledplayer.R
 
 class SettingsActivity : AppCompatActivity() {
 

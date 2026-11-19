@@ -1,4 +1,4 @@
-package com.marsel.wledplayer
+package com.marsel.wledplayer.ambilight.net
 
 import android.util.Log
 import java.net.DatagramPacket

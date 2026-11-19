@@ -1,4 +1,4 @@
-package com.marsel.wledplayer
+package com.marsel.wledplayer.ambilight.engine
 
 import java.util.Collections
 import kotlin.math.abs

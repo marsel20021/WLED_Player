@@ -1,4 +1,4 @@
-package com.marsel.wledplayer
+package com.marsel.wledplayer.player
 
 import android.content.Intent
 import android.net.Uri

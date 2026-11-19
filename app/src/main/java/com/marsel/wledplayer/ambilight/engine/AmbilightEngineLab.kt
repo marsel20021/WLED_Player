@@ -1,4 +1,4 @@
-package com.marsel.wledplayer
+package com.marsel.wledplayer.ambilight.engine
 
 import android.app.Activity
 import android.content.SharedPreferences
@@ -31,6 +31,10 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import com.marsel.wledplayer.ambilight.AmbilightEngine
+import com.marsel.wledplayer.ambilight.net.Ddp
+import com.marsel.wledplayer.data.rawBooleanValue
+import com.marsel.wledplayer.data.rawStringValue
 
 /**
  * Тестовый движок подсветки Lab. Это «оболочка»: захват кадра, ритм вывода, отправка по DDP, пауза.

@@ -1,4 +1,4 @@
-package com.marsel.wledplayer
+package com.marsel.wledplayer.ambilight.engine
 
 import kotlin.math.max
 import kotlin.math.min

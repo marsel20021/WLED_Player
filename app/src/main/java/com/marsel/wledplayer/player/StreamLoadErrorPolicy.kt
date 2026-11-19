@@ -1,4 +1,4 @@
-package com.marsel.wledplayer
+package com.marsel.wledplayer.player
 
 import androidx.annotation.OptIn
 import androidx.media3.common.C

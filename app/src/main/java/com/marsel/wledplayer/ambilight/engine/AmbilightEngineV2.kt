@@ -1,4 +1,4 @@
-package com.marsel.wledplayer
+package com.marsel.wledplayer.ambilight.engine
 
 import android.app.Activity
 import android.content.SharedPreferences
@@ -34,6 +34,10 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.roundToInt
+import com.marsel.wledplayer.ambilight.AmbilightEngine
+import com.marsel.wledplayer.ambilight.net.Ddp
+import com.marsel.wledplayer.data.rawBooleanValue
+import com.marsel.wledplayer.data.rawStringValue
 
 /**
  * Новый движок подсветки (v2). Работает в одном фоновом потоке; каждый кадр:

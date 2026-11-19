@@ -1,4 +1,4 @@
-package com.marsel.wledplayer
+package com.marsel.wledplayer.audio
 
 import android.app.Activity
 import android.util.Log

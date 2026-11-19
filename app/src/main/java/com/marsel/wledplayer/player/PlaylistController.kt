@@ -1,4 +1,4 @@
-package com.marsel.wledplayer
+package com.marsel.wledplayer.player
 
 import android.app.Activity
 import android.content.Intent
@@ -15,6 +15,7 @@ import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import com.marsel.wledplayer.ui.MainActivity
 
 /**
  * Вся логика плейлистов вынесена сюда, чтобы не раздувать MainActivity.

@@ -1,4 +1,4 @@
-package com.marsel.wledplayer
+package com.marsel.wledplayer.update
 
 import android.app.DownloadManager
 import android.content.BroadcastReceiver
@@ -20,6 +20,7 @@ import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import com.marsel.wledplayer.BuildConfig
 
 class AppUpdater(private val context: Context) {
 
