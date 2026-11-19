@@ -11,7 +11,8 @@ data class SeriesInfo(
     val imdbId: String,
     val title: String,
     val year: Int?,
-    val seasonCounts: Map<Int, Int>
+    val seasonCounts: Map<Int, Int>,
+    val posterUrl: String? = null
 )
 
 sealed interface SeriesLookupResult {
@@ -23,7 +24,7 @@ sealed interface SeriesLookupResult {
 }
 
 sealed interface SeriesPick {
-    data class One(val kinopoiskId: Int, val imdbId: String?, val title: String, val year: Int?) : SeriesPick
+    data class One(val kinopoiskId: Int, val imdbId: String?, val title: String, val year: Int?, val posterUrl: String? = null) : SeriesPick
     data object None : SeriesPick
     /** Несколько сериалов с таким названием, выбрать нельзя. */
     data object Many : SeriesPick
@@ -62,7 +63,7 @@ object KinopoiskParser {
             if (year != null && itemYear != year) continue
             val id = o.optInt("kinopoiskId", 0)
             if (id <= 0) continue
-            found.add(SeriesPick.One(id, o.str("imdbId"), names.firstOrNull { it != null } ?: title, itemYear))
+            found.add(SeriesPick.One(id, o.str("imdbId"), names.firstOrNull { it != null } ?: title, itemYear, o.str("posterUrlPreview") ?: o.str("posterUrl")))
         }
         return when (found.size) {
             0 -> SeriesPick.None
@@ -127,7 +128,7 @@ class SeriesLookup(private val token: String) {
             val counts = KinopoiskParser.parseSeasons(seasonsResp.body)
             if (counts.isEmpty()) return SeriesLookupResult.NotFound
 
-            SeriesLookupResult.Found(SeriesInfo(one.kinopoiskId, imdb!!, one.title, one.year, counts))
+            SeriesLookupResult.Found(SeriesInfo(one.kinopoiskId, imdb!!, one.title, one.year, counts, one.posterUrl))
         } catch (e: IOException) {
             SeriesLookupResult.Failed("нет сети: ${e.message}")
         }

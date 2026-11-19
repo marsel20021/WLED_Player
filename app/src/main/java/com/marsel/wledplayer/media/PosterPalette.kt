@@ -35,7 +35,7 @@ object PosterPalette {
         val top = weight.indices.maxByOrNull { weight[it] } ?: 0
         if (weight[top] <= 0.0) return PosterColors.DEFAULT
         val hue = (top + 0.5f) / HUES * 360f
-        return PosterColors(fromHsv(hue, 0.55f, 0.45f), fromHsv(hue, 0.45f, 1.0f), fromHsv(hue, 0.45f, 0.10f))
+        return PosterColors(fromHsv(hue, 0.55f, 0.45f), fromHsv(hue, 0.60f, 0.98f), fromHsv(hue, 0.45f, 0.10f))
     }
 
     /** Цвет ARGB -> [оттенок 0..360, насыщенность 0..1, яркость 0..1]. Своя формула, чтобы не зависеть от Android. */

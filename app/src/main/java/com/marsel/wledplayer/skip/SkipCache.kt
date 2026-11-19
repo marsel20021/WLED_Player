@@ -44,13 +44,17 @@ class SkipCache(
         val counts = LinkedHashMap<Int, Int>()
         val c = o.getJSONObject("c")
         for (k in c.keys()) counts[k.toInt()] = c.getInt(k)
-        SeriesInfo(o.getInt("id"), o.getString("imdb"), o.getString("title"), if (o.isNull("y")) null else o.getInt("y"), counts)
+        SeriesInfo(
+            o.getInt("id"), o.getString("imdb"), o.getString("title"), if (o.isNull("y")) null else o.getInt("y"), counts,
+            o.optString("p").takeIf { it.isNotEmpty() }
+        )
     }
 
     fun putSeries(key: String, info: SeriesInfo?) {
         write(key, info?.let {
             JSONObject().put("id", it.kinopoiskId).put("imdb", it.imdbId).put("title", it.title)
                 .put("y", it.year ?: JSONObject.NULL)
+                .put("p", it.posterUrl ?: "")
                 .put("c", JSONObject().also { c -> it.seasonCounts.forEach { (s, n) -> c.put(s.toString(), n) } })
         })
     }

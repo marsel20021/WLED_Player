@@ -54,6 +54,8 @@ import com.marsel.wledplayer.audio.AudioTrackController
 import com.marsel.wledplayer.media.EpisodeFrame
 import com.marsel.wledplayer.media.EpisodeFrames
 import com.marsel.wledplayer.media.FramesResult
+import com.marsel.wledplayer.media.ImageLoader
+import com.marsel.wledplayer.media.PosterPalette
 import com.marsel.wledplayer.skip.EpisodeParser
 import com.marsel.wledplayer.skip.SharedPrefsStore
 import com.marsel.wledplayer.skip.SkipHttp
@@ -113,6 +115,7 @@ class MainActivity : AppCompatActivity() {
     private var framesRetryAt = 0L
     private var frames: List<EpisodeFrame> = emptyList()
     private var episodesKey: String? = null
+    private var paletteFor: String? = null
     private val audioTrackController by lazy { AudioTrackController(this) }
 
     private val overlayActions = object : OverlayActions {
@@ -354,6 +357,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         maybeLoadFrames()
+        maybeLoadPalette()
 
         // Сезон не удалось определить: спрашиваем один раз для этого списка серий
         val choice = state.seasonChoice
@@ -400,6 +404,18 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
                 episodesKey = null
+            }
+        }
+    }
+
+    /** Цвет акцента берём из постера сериала. Если постера нет, остаётся тёплый по умолчанию. */
+    private fun maybeLoadPalette() {
+        val url = skipController?.currentSeries?.posterUrl ?: return
+        if (url == paletteFor) return
+        paletteFor = url
+        ImageLoader.load(url, 200) { bmp ->
+            if (bmp != null && paletteFor == url && !isFinishing) {
+                overlay.setAccent(PosterPalette.fromBitmap(bmp).accent)
             }
         }
     }
