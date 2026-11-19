@@ -79,6 +79,26 @@
         android:entryValues="@array/capture_mode_values"
         android:defaultValue="auto" />
 
+    <PreferenceCategory android:title="Пропуск заставок">
+        <SwitchPreferenceCompat
+            android:key="skip_enabled"
+            android:title="Автопропуск"
+            android:summary="Заставка, пересказ и титры пропускаются сами, с отсчётом"
+            android:defaultValue="true" />
+
+        <SwitchPreferenceCompat
+            android:key="skip_recap"
+            android:title="Пропускать пересказ"
+            android:summary="Краткое «ранее в сериале» в начале серии"
+            android:defaultValue="true" />
+
+        <SwitchPreferenceCompat
+            android:key="skip_hold"
+            android:title="Держать кнопку пропуска"
+            android:summary="Кнопка остаётся, пока ты внутри заставки, даже если пропуск уже был или ты перемотал сам"
+            android:defaultValue="true" />
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="Движок подсветки">
         <ListPreference
             android:key="ambilight_engine"

@@ -107,4 +107,8 @@ dependencies {
     implementation("io.ktor:ktor-server-core:$ktorVersion")
     implementation("io.ktor:ktor-server-cio:$ktorVersion")
     implementation("io.ktor:ktor-server-websockets:$ktorVersion")
+
+    // Тесты на компьютере. В Android org.json только заглушка, поэтому для тестов берём настоящий
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
 }

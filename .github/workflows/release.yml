@@ -52,6 +52,12 @@ jobs:
             fi
           done
 
+      - name: Прогнать тесты (только не для master)
+        if: github.ref != 'refs/heads/master'
+        run: |
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest --stacktrace
+
       - name: Достать ключ подписи
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}

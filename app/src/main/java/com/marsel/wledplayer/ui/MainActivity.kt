@@ -8,12 +8,15 @@ import android.content.SharedPreferences
 import android.os.Bundle
 import android.os.PowerManager
 import android.os.SystemClock
+import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.annotation.OptIn
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.media3.common.ColorInfo
@@ -49,6 +52,9 @@ import com.marsel.wledplayer.data.rawBooleanValue
 import com.marsel.wledplayer.data.rawStringValue
 import com.marsel.wledplayer.player.PlaybackIntentParser
 import com.marsel.wledplayer.player.PlaylistController
+import com.marsel.wledplayer.skip.SkipController
+import com.marsel.wledplayer.skip.SkipKind
+import com.marsel.wledplayer.skip.SkipUiState
 import com.marsel.wledplayer.update.AppUpdater
 
 @OptIn(UnstableApi::class)
@@ -66,6 +72,13 @@ class MainActivity : AppCompatActivity() {
 
     private var playlistController: PlaylistController? = null
     private var returnResultRequested = false
+
+    // Автопропуск заставок
+    private var skipController: SkipController? = null
+    private lateinit var skipButton: TextView
+    private var okConsumed = false
+    private var seasonDialog: AlertDialog? = null
+    private var seasonDialogFor: String? = null
 
     // Название фильма (extra "title" от Vokino) и сводка extras - уходят на пульт для поиска постера
     private var movieTitle: String? = null
@@ -123,6 +136,8 @@ class MainActivity : AppCompatActivity() {
         playerViewTexture = findViewById(R.id.playerViewTexture)
         playerViewSurface = findViewById(R.id.playerViewSurface)
         val btnSettings = findViewById<Button>(R.id.btnSettings)
+        skipButton = findViewById(R.id.skipButton)
+        skipButton.setOnClickListener { skipPressed() }
 
         btnSettings.setOnClickListener {
             openingSettings = true // уход в настройки - это не выключение ТВ
@@ -140,6 +155,12 @@ class MainActivity : AppCompatActivity() {
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
+                // Идёт отсчёт автопропуска - «назад» отменяет его (кнопка останется)
+                val offer = skipController?.state?.offer
+                if (offer != null && !offer.manual) {
+                    skipController?.cancel()
+                    return
+                }
                 // 1) Панель видна - «назад» просто прячет её (и кнопку настроек).
                 // 2) Панели нет - первое «назад» просит подтверждение, второе (в течение 2 с) закрывает плеер.
                 val activeView = if (playerViewSurface.visibility == View.VISIBLE) playerViewSurface else playerViewTexture
@@ -227,6 +248,76 @@ class MainActivity : AppCompatActivity() {
             intentInfo = incoming.intentInfo
             controller.start(player!!, incoming)
         }
+
+        player?.let { p ->
+            skipController = SkipController(this, p, appPrefs, { movieTitle }) { renderSkip(it) }.also { it.start() }
+        }
+    }
+
+    /** Кнопка пропуска (или «Вернуть» после прыжка): то же, что нажатие OK на пульте. */
+    private fun skipPressed() {
+        val c = skipController ?: return
+        val state = c.state
+        when {
+            state.offer != null -> c.skipNow()
+            state.undo != null -> c.undo()
+        }
+    }
+
+    private fun renderSkip(state: SkipUiState) {
+        val offer = state.offer
+        when {
+            offer != null -> {
+                val what = when (offer.kind) {
+                    SkipKind.INTRO -> "заставку"
+                    SkipKind.RECAP -> "пересказ"
+                    SkipKind.CREDITS -> "титры"
+                }
+                skipButton.text = if (offer.manual) "Пропустить $what" else "Пропустить $what · ${offer.secondsLeft}"
+                skipButton.visibility = View.VISIBLE
+            }
+            state.undo != null -> {
+                skipButton.text = "Вернуть"
+                skipButton.visibility = View.VISIBLE
+            }
+            else -> skipButton.visibility = View.GONE
+        }
+
+        // Сезон не удалось определить: спрашиваем один раз для этого списка серий
+        val choice = state.seasonChoice
+        if (choice != null && choice.selected == null) {
+            val key = choice.seasons.joinToString(",")
+            if (seasonDialogFor != key && seasonDialog?.isShowing != true && !isFinishing) {
+                seasonDialogFor = key
+                seasonDialog = AlertDialog.Builder(this)
+                    .setTitle("Какой это сезон?")
+                    .setItems(choice.seasons.map { "Сезон $it" }.toTypedArray()) { _, which ->
+                        skipController?.pickSeason(choice.seasons[which])
+                    }
+                    .show()
+            }
+        }
+    }
+
+    // OK на пульте: если на экране кнопка пропуска (или «Вернуть»), нажимает её, иначе работает как обычно
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val isOk = event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER ||
+            event.keyCode == KeyEvent.KEYCODE_ENTER ||
+            event.keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER
+        if (isOk) {
+            val state = skipController?.state
+            val hasButton = state != null && (state.offer != null || state.undo != null)
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 && hasButton && seasonDialog?.isShowing != true) {
+                okConsumed = true
+                skipPressed()
+                return true
+            }
+            if (okConsumed) {
+                if (event.action == KeyEvent.ACTION_UP) okConsumed = false
+                return true
+            }
+        }
+        return super.dispatchKeyEvent(event)
     }
 
     /** Экран погас (ТВ ушёл в ожидание): штатно закрываем плеер. */
@@ -276,6 +367,9 @@ class MainActivity : AppCompatActivity() {
             try { unregisterReceiver(it) } catch (e: Exception) { }
         }
         screenOffReceiver = null
+        skipController?.stop()
+        skipController = null
+        seasonDialog?.dismiss()
         ambilightController.release()
         smartAudioController.release()
         serverEngine?.stop(gracePeriodMillis = 200, timeoutMillis = 1000)

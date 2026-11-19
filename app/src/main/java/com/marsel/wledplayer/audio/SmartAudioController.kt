@@ -4,7 +4,6 @@ import android.content.Context
 import android.media.audiofx.DynamicsProcessing
 import android.os.Build
 import android.util.Log
-import com.marsel.wledplayer.ui.MainActivity
 
 /**
  * "Умный звук": компрессор + лимитер (не просто буст громкости), чтобы разные
