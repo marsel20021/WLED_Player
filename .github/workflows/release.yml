@@ -76,6 +76,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KINOPOISK_TOKEN: ${{ secrets.KINOPOISK_TOKEN }}
           KINOPOISKDEV_TOKEN: ${{ secrets.KINOPOISKDEV_TOKEN }}
+          OVERRIDES_URL: ${{ secrets.OVERRIDES_URL }}
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease --stacktrace
@@ -92,6 +93,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KINOPOISK_TOKEN: ${{ secrets.KINOPOISK_TOKEN }}
           KINOPOISKDEV_TOKEN: ${{ secrets.KINOPOISKDEV_TOKEN }}
+          OVERRIDES_URL: ${{ secrets.OVERRIDES_URL }}
         run: |
           ./gradlew assembleBeta --stacktrace
           cp app/build/outputs/apk/beta/app-beta.apk dist/wled-player-beta.apk

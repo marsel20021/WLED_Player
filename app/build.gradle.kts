@@ -28,6 +28,7 @@ android {
 
         buildConfigField("String", "KINOPOISK_TOKEN", "\"${secret("KINOPOISK_TOKEN", "kinopoisk.token")}\"")
         buildConfigField("String", "KINOPOISKDEV_TOKEN", "\"${secret("KINOPOISKDEV_TOKEN", "kinopoiskdev.token")}\"")
+        buildConfigField("String", "OVERRIDES_URL", "\"${secret("OVERRIDES_URL", "overrides.url")}\"")
         buildConfigField("boolean", "IS_BETA", "false")
         manifestPlaceholders["appLabel"] = "WLED Player"
     }
