@@ -5,9 +5,11 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
+import android.os.SystemClock
 import android.view.View
 import androidx.core.content.ContextCompat
 import com.marsel.wledplayer.R
+import com.marsel.wledplayer.skip.SkipRules
 
 /**
  * Кнопка пропуска. Пока идёт отсчёт, слева заливается цвет акцента.
@@ -19,7 +21,8 @@ class SkipButtonView(context: Context, private val dz: Dz) : View(context) {
         set(value) { field = value; invalidate() }
 
     private var text = ""
-    private var progress = 0f
+    // отсчёт двигаем по часам между значениями движка, иначе заливка идёт рывками
+    private val clock = CountdownClock(SkipRules.COUNTDOWN_MS)
     private var active = true
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -35,10 +38,11 @@ class SkipButtonView(context: Context, private val dz: Dz) : View(context) {
     private val h = dz.f(100f)
 
     fun set(text: String, progress: Float, active: Boolean) {
+        val textChanged = this.text != text
         this.text = text
-        this.progress = progress.coerceIn(0f, 1f)
         this.active = active
-        requestLayout()
+        clock.update(progress, active, SystemClock.uptimeMillis())
+        if (textChanged) requestLayout()
         invalidate()
     }
 
@@ -66,6 +70,7 @@ class SkipButtonView(context: Context, private val dz: Dz) : View(context) {
         paint.color = 0xB814161E.toInt()
         canvas.drawRoundRect(rect, radius, radius, paint)
 
+        val progress = clock.value(SystemClock.uptimeMillis())
         if (progress > 0f) {
             canvas.save()
             clip.reset()
@@ -92,5 +97,8 @@ class SkipButtonView(context: Context, private val dz: Dz) : View(context) {
         }
         val fm = textPaint.fontMetrics
         canvas.drawText(text, ix + iconSize + dz.f(20f), cy - (fm.ascent + fm.descent) / 2, textPaint)
+
+        // пока отсчёт идёт, перерисовываемся каждый кадр
+        if (clock.running && progress < 1f) postInvalidateOnAnimation()
     }
 }
