@@ -73,6 +73,7 @@ import com.marsel.wledplayer.player.PlaylistController
 import com.marsel.wledplayer.skip.SkipController
 import com.marsel.wledplayer.skip.SkipKind
 import com.marsel.wledplayer.skip.SkipUiState
+import com.marsel.wledplayer.skip.SkipWire
 import com.marsel.wledplayer.update.AppUpdater
 
 @OptIn(UnstableApi::class)
@@ -582,6 +583,9 @@ class MainActivity : AppCompatActivity() {
                         put("labJitter", rawStringValue(appPrefs, "lab_jitter", "mid"))
                         put("labFps", rawStringValue(appPrefs, "lab_fps", "60"))
                         put("labDetectBars", rawBooleanValue(appPrefs, "lab_detect_bars", false))
+                        put("skipEnabled", rawBooleanValue(appPrefs, "skip_enabled", true))
+                        put("skipRecap", rawBooleanValue(appPrefs, "skip_recap", true))
+                        put("skipHold", rawBooleanValue(appPrefs, "skip_hold", true))
                     }
                     try { send(Frame.Text(snapshot.toString())) } catch (e: Exception) { }
 
@@ -601,7 +605,10 @@ class MainActivity : AppCompatActivity() {
                     try { send(Frame.Text(playlistJson.toString())) } catch (e: Exception) { }
 
                     val job = launch {
+                        var tick = 0
+                        var lastSkip: String? = null
                         while (true) {
+                            if (tick % 4 == 0) {
                             val state = JSONObject()
                             withContext(Dispatchers.Main) {
                                 state.put("type", "playbackState")
@@ -617,7 +624,20 @@ class MainActivity : AppCompatActivity() {
                                 send(Frame.Text(state.toString()))
                             } catch (e: Exception) {
                             }
-                            delay(1000)
+                            }
+                            // Состояние пропуска уходит на телефон сразу, как только изменилось (проверяем 4 раза в секунду)
+                            val skipJson = withContext(Dispatchers.Main) {
+                                SkipWire.toJson(skipController?.state ?: SkipUiState()).toString()
+                            }
+                            if (skipJson != lastSkip) {
+                                lastSkip = skipJson
+                                try {
+                                    send(Frame.Text(skipJson))
+                                } catch (e: Exception) {
+                                }
+                            }
+                            tick++
+                            delay(250)
                         }
                     }
 
@@ -649,6 +669,13 @@ class MainActivity : AppCompatActivity() {
                                                 player?.seekTo(idx, 0L)
                                             }
                                         }
+                                        "skipNow" -> withContext(Dispatchers.Main) { skipController?.skipNow() }
+                                        "skipCancel" -> withContext(Dispatchers.Main) { skipController?.cancel() }
+                                        "skipUndo" -> withContext(Dispatchers.Main) { skipController?.undo() }
+                                        "skipPickSeason" -> withContext(Dispatchers.Main) {
+                                            val season = json.optInt("season", -1)
+                                            if (season >= 1) skipController?.pickSeason(season)
+                                        }
                                         "settingsUpdate" -> {
                                             val editor = appPrefs.edit()
                                             var surfaceModeChanged = false
@@ -670,6 +697,9 @@ class MainActivity : AppCompatActivity() {
                                             if (json.has("blackThreshold")) editor.putString("black_threshold", json.getInt("blackThreshold").toString())
                                             if (json.has("useV2")) editor.putBoolean("use_v2", json.getBoolean("useV2"))
                                             if (json.has("ambilightEnabled")) editor.putBoolean("ambilight_enabled", json.getBoolean("ambilightEnabled"))
+                                            if (json.has("skipEnabled")) editor.putBoolean("skip_enabled", json.getBoolean("skipEnabled"))
+                                            if (json.has("skipRecap")) editor.putBoolean("skip_recap", json.getBoolean("skipRecap"))
+                                            if (json.has("skipHold")) editor.putBoolean("skip_hold", json.getBoolean("skipHold"))
 
                                             if (json.has("bufferSizeSec")) editor.putString("buffer_size_sec", json.getInt("bufferSizeSec").toString())
 
