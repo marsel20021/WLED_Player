@@ -137,6 +137,19 @@ class MainActivity : AppCompatActivity() {
             p.seekTo(target.coerceAtLeast(0L))
         }
 
+        override fun seekTo(positionMs: Long) {
+            val p = player ?: return
+            var target = positionMs
+            val dur = p.duration
+            if (dur != C.TIME_UNSET && dur > 0) target = target.coerceAtMost(dur - 1000)
+            p.seekTo(target.coerceAtLeast(0L))
+        }
+
+        override fun pickSeason(season: Int) {
+            skipController?.pickSeason(season)
+            updateOverlay()
+        }
+
         override fun prev() { player?.seekToPreviousMediaItem() }
         override fun next() { player?.seekToNextMediaItem() }
 
@@ -457,6 +470,10 @@ class MainActivity : AppCompatActivity() {
             }
             overlay.setEpisodes(items, if (season != null) "Сезон $season" else "")
         }
+
+        // Сезоны сериала для плашки-переключателя над лентой
+        val seasonList = skipController?.currentSeries?.seasonCounts?.keys?.sorted().orEmpty()
+        overlay.setSeasons(seasonList, skipController?.currentSeason, skipController?.state?.seasonsUnavailable == true)
     }
 
     // OK на пульте: если на экране кнопка пропуска (или «Вернуть») и меню закрыто, нажимает её.
@@ -542,12 +559,8 @@ class MainActivity : AppCompatActivity() {
         player?.release()
     }
 
-    private fun startRemoteServer() {
-        serverEngine = embeddedServer(CIO, port = 8080) {
-            install(WebSockets)
-            routing {
-                webSocket("/ws") {
-                    val snapshot = JSONObject().apply {
+    /** Все настройки одним сообщением: уходит на телефон при подключении и каждый раз, когда что-то поменялось. */
+    private fun buildSettingsSnapshot(): JSONObject = JSONObject().apply {
                         put("type", "settingsSnapshot")
                         put("wledIp", rawStringValue(appPrefs, "wled_ip", "192.168.1.110"))
                         put("udpPort", rawStringValue(appPrefs, "udp_port", "4048"))
@@ -586,8 +599,15 @@ class MainActivity : AppCompatActivity() {
                         put("skipEnabled", rawBooleanValue(appPrefs, "skip_enabled", true))
                         put("skipRecap", rawBooleanValue(appPrefs, "skip_recap", true))
                         put("skipHold", rawBooleanValue(appPrefs, "skip_hold", true))
-                    }
-                    try { send(Frame.Text(snapshot.toString())) } catch (e: Exception) { }
+                        }
+
+    private fun startRemoteServer() {
+        serverEngine = embeddedServer(CIO, port = 8080) {
+            install(WebSockets)
+            routing {
+                webSocket("/ws") {
+                    var lastSettings = buildSettingsSnapshot().toString()
+                    try { send(Frame.Text(lastSettings)) } catch (e: Exception) { }
 
                     val playlistJson = JSONObject().apply {
                         put("type", "playlist")
@@ -624,6 +644,15 @@ class MainActivity : AppCompatActivity() {
                                 send(Frame.Text(state.toString()))
                             } catch (e: Exception) {
                             }
+                            }
+                            // Настройки уходят на телефон, как только изменились: с телефона, пультом на ТВ или кнопкой подсветки
+                            val settingsJson = buildSettingsSnapshot().toString()
+                            if (settingsJson != lastSettings) {
+                                lastSettings = settingsJson
+                                try {
+                                    send(Frame.Text(settingsJson))
+                                } catch (e: Exception) {
+                                }
                             }
                             // Состояние пропуска уходит на телефон сразу, как только изменилось (проверяем 4 раза в секунду)
                             val skipJson = withContext(Dispatchers.Main) {

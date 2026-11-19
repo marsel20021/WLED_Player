@@ -5,6 +5,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.KeyEvent
@@ -26,12 +27,14 @@ interface OverlayActions {
     fun playPause()
     fun setPlaying(play: Boolean)
     fun seekBy(deltaMs: Long)
+    fun seekTo(positionMs: Long)
     fun prev()
     fun next()
     fun playIndex(index: Int)
     fun toggleLed()
     fun openSettings()
     fun openAudio()
+    fun pickSeason(season: Int)
 }
 
 /** Что показывать: обновляется примерно дважды в секунду. */
@@ -52,6 +55,10 @@ data class OverlayModel(
  * Пульт: идёт фильм - ничего нет. OK или Вниз - меню. Вниз ещё раз - лента серий. Вверх - назад.
  * Влево/Вправо при скрытом меню перематывают, в меню и ленте двигают фокус.
  * В меню Вверх переводит фокус на полосу времени, там Влево/Вправо перематывают, Вниз возвращает к кнопкам.
+ * В ленте Вверх переводит фокус на плашку сезона (Влево/Вправо меняют сезон), ещё раз Вверх - в меню.
+ *
+ * Перемотка одна на все места, как у стандартной полосы Media3: каждое нажатие сдвигает полосу на 1/20 длительности,
+ * а само видео перематывается через секунду после последнего нажатия.
  */
 class PlayerOverlay(
     private val context: Context,
@@ -171,6 +178,10 @@ class PlayerOverlay(
     }
     private val stripTitle = text(46f, UiColors.TEXT)
     private val stripSeason = text(32f, accent)
+    private val seasonPlate = SeasonPlateView(context, dz).apply {
+        visibility = View.GONE
+        onPick = { season -> actions.pickSeason(season); scheduleHide() }
+    }
     private val episodesBox = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
         visibility = View.GONE
@@ -179,6 +190,7 @@ class PlayerOverlay(
             gravity = Gravity.BOTTOM
             addView(stripTitle)
             addView(stripSeason, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).also { it.marginStart = dz.i(28f) })
+            addView(seasonPlate, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).also { it.marginStart = dz.i(12f) })
         }
         addView(head, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).also { it.leftMargin = dz.i(20f) })
         addView(strip, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dz.i(330f)))
@@ -193,7 +205,7 @@ class PlayerOverlay(
     private val thinFill = View(context).apply { setBackgroundColor(accent) }
 
     init {
-        seekBar.onStep = { delta -> actions.seekBy(delta); scheduleHide() }
+        seekBar.onStep = { dir, repeat -> scrub(dir, repeat) }
         val match = ViewGroup.LayoutParams.MATCH_PARENT
         root.addView(topScrim, FrameLayout.LayoutParams(match, dz.i(340f), Gravity.TOP))
         root.addView(bottomScrim, FrameLayout.LayoutParams(match, dz.i(560f), Gravity.BOTTOM))
@@ -229,13 +241,38 @@ class PlayerOverlay(
         ledBtn.accent = color
         skipButton.accent = color
         strip.accent = color
+        seasonPlate.accent = color
     }
 
     fun setEpisodes(items: List<EpisodeItem>, seasonLabel: String) {
         episodeItems = items
+        seasonLabelText = seasonLabel
         stripSeason.text = seasonLabel
+        stripSeason.visibility = if (plateShown || seasonLabel.isEmpty()) View.GONE else View.VISIBLE
         if (mode == Mode.EPISODES) strip.setItems(items, model.currentIndex, currentFraction())
     }
+
+    /**
+     * Сезоны сериала. Несколько сезонов - над лентой плашка с переключателем, иначе просто подпись.
+     * unavailable: сериал не нашёлся или не загрузился, сезонов нет, пишем об этом.
+     */
+    fun setSeasons(seasons: List<Int>, selected: Int?, unavailable: Boolean) {
+        val plate = seasons.size >= 2
+        seasonPlate.set(seasons, selected)
+        seasonPlate.visibility = if (plate) View.VISIBLE else View.GONE
+        plateShown = plate
+        if (unavailable && !plate) {
+            stripSeason.text = "Сезоны не загрузились"
+            stripSeason.visibility = View.VISIBLE
+            stripSeason.setTextColor(UiColors.MUTED)
+        } else {
+            stripSeason.text = seasonLabelText
+            stripSeason.setTextColor(accent)
+            stripSeason.visibility = if (plate || seasonLabelText.isEmpty()) View.GONE else View.VISIBLE
+        }
+    }
+    private var plateShown = false
+    private var seasonLabelText = ""
 
     fun update(m: OverlayModel) {
         val playingChanged = m.playing != model.playing
@@ -243,9 +280,11 @@ class PlayerOverlay(
         titleTv.text = m.title
         subtitleTv.text = m.subtitle
         subtitleTv.visibility = if (m.subtitle.isEmpty()) View.GONE else View.VISIBLE
-        timeCur.text = formatTime(m.positionMs)
+        // пока идёт перемотка и сразу после неё показываем, куда едем, а не отставшую позицию плеера
+        val shown = if (displayPos >= 0 && SystemClock.uptimeMillis() < displayUntil) displayPos else m.positionMs
+        timeCur.text = formatTime(shown)
         timeTotal.text = formatTime(m.durationMs)
-        seekBar.setProgress(m.positionMs, m.durationMs)
+        seekBar.setProgress(shown, m.durationMs)
         seekBar.marks = m.marks
         ledBtn.ledOn = m.ledOn
         if (playingChanged) playBtn.setIcon(if (m.playing) R.drawable.ic_pause else R.drawable.ic_play)
@@ -285,6 +324,7 @@ class PlayerOverlay(
     }
 
     fun hide() {
+        commitScrub()
         handler.removeCallbacks(hideRunnable)
         mode = Mode.HIDDEN
         updateVisibility()
@@ -322,6 +362,42 @@ class PlayerOverlay(
         skipButton.layoutParams = lp
     }
 
+    // ---------- перемотка ----------
+
+    private var scrubTarget = -1L
+    private var displayPos = -1L
+    private var displayUntil = 0L
+    private var lastScrubAt = 0L
+    private val applyScrub = Runnable { commitScrub() }
+
+    /** Один шаг перемотки: dir = -1 или 1. При удержании кнопки шаги идут не чаще 8 раз в секунду. */
+    private fun scrub(dir: Int, repeat: Int) {
+        val dur = model.durationMs
+        if (dur <= 0) return
+        val now = SystemClock.uptimeMillis()
+        if (repeat > 0 && now - lastScrubAt < SCRUB_REPEAT_MS) return
+        lastScrubAt = now
+        val base = if (scrubTarget >= 0) scrubTarget else model.positionMs
+        scrubTarget = SeekScrub.next(base, dir, dur)
+        displayPos = scrubTarget
+        displayUntil = Long.MAX_VALUE
+        seekBar.setProgress(scrubTarget, dur)
+        timeCur.text = formatTime(scrubTarget)
+        handler.removeCallbacks(applyScrub)
+        handler.postDelayed(applyScrub, SCRUB_APPLY_MS)
+        scheduleHide()
+    }
+
+    /** Перематывает видео туда, куда доехала полоса. */
+    private fun commitScrub() {
+        handler.removeCallbacks(applyScrub)
+        val t = scrubTarget
+        if (t < 0) return
+        scrubTarget = -1L
+        displayUntil = SystemClock.uptimeMillis() + 900L
+        actions.seekTo(t)
+    }
+
     private fun scheduleHide() {
         handler.removeCallbacks(hideRunnable)
         val delay = when (mode) {
@@ -344,13 +420,15 @@ class PlayerOverlay(
                     Mode.HIDDEN, Mode.SEEK -> show(Mode.MENU)
                     // с полосы времени Вниз возвращает к кнопкам, с кнопок открывает ленту серий
                     Mode.MENU -> if (seekBar.isFocused) { playBtn.requestFocus(); scheduleHide() } else show(Mode.EPISODES)
-                    Mode.EPISODES -> scheduleHide()
+                    // с плашки сезона Вниз возвращает на ленту серий
+                    Mode.EPISODES -> if (seasonPlate.isFocused) strip.focusCurrent() else scheduleHide()
                 }
                 return true
             }
             KeyEvent.KEYCODE_DPAD_UP -> {
                 if (down) when (mode) {
-                    Mode.EPISODES -> show(Mode.MENU)
+                    // из ленты Вверх идёт на плашку сезона (если она есть), с плашки - в меню
+                    Mode.EPISODES -> if (plateShown && !seasonPlate.isFocused) { seasonPlate.requestFocus(); scheduleHide() } else show(Mode.MENU)
                     // Вверх из меню переводит на полосу времени (перемотка Влево/Вправо), меню не закрывает
                     Mode.MENU -> { seekBar.requestFocus(); scheduleHide() }
                     Mode.SEEK -> hide()
@@ -361,9 +439,8 @@ class PlayerOverlay(
             KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> {
                 if (mode == Mode.HIDDEN || mode == Mode.SEEK) {
                     if (down) {
-                        val step = if (e.repeatCount > 8) 30_000L else 10_000L
-                        actions.seekBy(if (e.keyCode == KeyEvent.KEYCODE_DPAD_LEFT) -step else step)
                         show(Mode.SEEK)
+                        scrub(if (e.keyCode == KeyEvent.KEYCODE_DPAD_LEFT) -1 else 1, e.repeatCount)
                     }
                     return true
                 }
@@ -383,8 +460,8 @@ class PlayerOverlay(
             KeyEvent.KEYCODE_MEDIA_PAUSE -> { if (down) actions.setPlaying(false); return true }
             KeyEvent.KEYCODE_MEDIA_NEXT -> { if (down) actions.next(); return true }
             KeyEvent.KEYCODE_MEDIA_PREVIOUS -> { if (down) actions.prev(); return true }
-            KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> { if (down) { actions.seekBy(30_000); show(Mode.SEEK) }; return true }
-            KeyEvent.KEYCODE_MEDIA_REWIND -> { if (down) { actions.seekBy(-10_000); show(Mode.SEEK) }; return true }
+            KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> { if (down) { show(Mode.SEEK); scrub(1, e.repeatCount) }; return true }
+            KeyEvent.KEYCODE_MEDIA_REWIND -> { if (down) { show(Mode.SEEK); scrub(-1, e.repeatCount) }; return true }
         }
         return false
     }
@@ -394,6 +471,9 @@ class PlayerOverlay(
     }
 
     companion object {
+        private const val SCRUB_APPLY_MS = 1_000L
+        private const val SCRUB_REPEAT_MS = 120L
+
         fun formatTime(ms: Long): String {
             if (ms <= 0) return "00:00"
             val total = ms / 1000

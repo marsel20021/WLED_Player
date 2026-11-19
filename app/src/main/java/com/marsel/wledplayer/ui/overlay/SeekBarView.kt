@@ -8,14 +8,17 @@ import android.view.KeyEvent
 import android.view.View
 import com.marsel.wledplayer.skip.SegmentMark
 
-/** Полоса времени: дорожка, заполнение цветом акцента и бегунок. Не управляется напрямую, перемотка идёт кнопками пульта. */
+/**
+ * Полоса времени: дорожка, заполнение цветом акцента и бегунок. Не управляется напрямую, перемотка идёт кнопками пульта.
+ * Вся отрисовка лежит внутри самого вида (запас по высоте и по бокам под кольцо бегунка), иначе кольцо обрезается и бегунок выходит не круглым.
+ */
 class SeekBarView(context: Context, private val dz: Dz) : View(context) {
 
     var accent: Int = UiColors.DEFAULT_ACCENT
         set(value) { field = value; invalidate() }
 
-    /** Куда перемотать при Влево/Вправо, когда на полосе фокус. */
-    var onStep: ((Long) -> Unit)? = null
+    /** Влево/Вправо на полосе: -1 или 1 и номер повтора при удержании. Сколько это секунд, решает экран. */
+    var onStep: ((Int, Int) -> Unit)? = null
 
     var marks: List<SegmentMark> = emptyList()
         set(value) {
@@ -43,14 +46,14 @@ class SeekBarView(context: Context, private val dz: Dz) : View(context) {
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), dz.i(44f))
+        setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), dz.i(HEIGHT))
     }
 
     override fun onDraw(canvas: Canvas) {
         val h = dz.f(8f)
         val cy = height / 2f
-        val left = dz.f(16f)
-        val right = width - dz.f(16f)
+        val left = dz.f(INSET)
+        val right = width - dz.f(INSET)
         val x = left + (right - left) * fraction
 
         paint.style = Paint.Style.FILL
@@ -89,10 +92,15 @@ class SeekBarView(context: Context, private val dz: Dz) : View(context) {
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
-            val step = if (event.repeatCount > 8) 30_000L else 10_000L
-            onStep?.invoke(if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) -step else step)
+            onStep?.invoke(if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) -1 else 1, event.repeatCount)
             return true
         }
         return super.onKeyDown(keyCode, event)
+    }
+
+    private companion object {
+        // кольцо у бегунка при фокусе радиусом 30: высота 76 и отступ по бокам 34 дают запас
+        const val HEIGHT = 76f
+        const val INSET = 34f
     }
 }

@@ -100,15 +100,6 @@ class SkipCacheTest {
     }
 
     @Test
-    fun `выбранный сезон помнится недолго`() {
-        assertNull(cache.getPick("fp"))
-        cache.putPick("fp", 2)
-        assertEquals(2, cache.getPick("fp"))
-        now += SkipCache.PICK_TTL_MS + 1000
-        assertNull(cache.getPick("fp"))
-    }
-
-    @Test
     fun `старые записи вытесняются при переполнении`() {
         for (i in 0 until SkipCache.MAX_ENTRIES + 20) {
             now += 1000

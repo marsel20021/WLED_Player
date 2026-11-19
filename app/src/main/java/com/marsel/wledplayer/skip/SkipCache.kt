@@ -31,7 +31,6 @@ class SkipCache(
         const val SERIES_TTL_MS = 7 * DAY_MS
         const val TIMELINE_TTL_MS = 30 * DAY_MS
         const val NO_DATA_TTL_MS = 2 * DAY_MS
-        const val PICK_TTL_MS = 3L * 60 * 60 * 1000
         const val MAX_ENTRIES = 300
     }
 
@@ -90,17 +89,6 @@ class SkipCache(
                 }
             })
         })
-    }
-
-    // ---------- выбранный сезон ----------
-
-    fun getPick(fingerprint: String): Int? {
-        val r = read("p:$fingerprint", PICK_TTL_MS) { v -> (v as? Number)?.toInt() }
-        return (r as? Cached.Hit)?.value
-    }
-
-    fun putPick(fingerprint: String, season: Int) {
-        write("p:$fingerprint", season)
     }
 
     // ---------- внутреннее ----------

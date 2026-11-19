@@ -14,7 +14,7 @@ data class PlaybackInfo(
     val currentIndex: Int
 )
 
-/** Выбор сезона для плашки. selected = null: сезон ещё не выбран. */
+/** Выбор сезона для плашки: все сезоны сериала. selected = null: сезон ещё не выбран. */
 data class SeasonChoice(val seasons: List<Int>, val selected: Int?)
 
 /** После прыжка: можно вернуться назад. */
@@ -24,7 +24,9 @@ data class SkipUndo(val kind: SkipKind)
 data class SkipUiState(
     val offer: SkipOffer? = null,
     val seasonChoice: SeasonChoice? = null,
-    val undo: SkipUndo? = null
+    val undo: SkipUndo? = null,
+    /** Сериал не нашёлся или не загрузился: сезонов нет, экран пишет об этом. */
+    val seasonsUnavailable: Boolean = false
 )
 
 /** Команды ТВ. */
@@ -83,9 +85,8 @@ class SkipEngine(
     private var seriesRetryAt = 0L
     private var seriesFails = 0
     private var fingerprint: String? = null
+    // выбранный человеком сезон живёт только в памяти: вышел из плеера - спросим заново
     private var manualPick: Int? = null
-    private var cachedPickFor: String? = null
-    private var cachedPick: Int? = null
 
     // серия
     private var epKey: String? = null
@@ -127,21 +128,22 @@ class SkipEngine(
         if (fp != fingerprint) {
             fingerprint = fp
             manualPick = null
-            cachedPickFor = null
         }
 
         ensureSeries(sid, ctx.query)
         val info = series
         if (seriesState != Load.READY || info == null) {
             lastSnap = null
-            return SkipUiState(undo = currentUndo())
+            currentSeason = null
+            return SkipUiState(undo = currentUndo(), seasonsUnavailable = seriesState == Load.FAILED || seriesState == Load.MISSING)
         }
 
-        // Какой сезон: из названия, единственный, или выбранный человеком
+        // Какой сезон: выбранный человеком главнее, потом из названия, потом единственный
         val seasons = info.seasonCounts.keys.sorted()
         val fixedSeason = ctx.ref.season ?: EpisodeParser.findSeason(ctx.movieTitle) ?: seasons.singleOrNull()
-        val season = fixedSeason ?: manualPick?.takeIf { it in seasons } ?: loadPick(fp, seasons)
-        val choice = if (fixedSeason == null && seasons.size >= 2) SeasonChoice(seasons, season) else null
+        val season = manualPick?.takeIf { it in seasons } ?: fixedSeason
+        // переключатель есть всегда, если сезонов несколько, даже когда сезон взят из названия
+        val choice = if (seasons.size >= 2) SeasonChoice(seasons, season) else null
         currentSeason = season
         if (season == null) {
             lastSnap = null
@@ -205,10 +207,9 @@ class SkipEngine(
     /** Человек выбрал сезон на плашке. */
     fun pickSeason(season: Int) {
         val info = series ?: return
-        val fp = fingerprint ?: return
         if (season !in info.seasonCounts.keys) return
         manualPick = season
-        cache.putPick(fp, season)
+        currentSeason = season
     }
 
     // ---------- внутреннее ----------
@@ -228,14 +229,6 @@ class SkipEngine(
         val raw = sid + "|" + playlist.size + "|" + playlist.first() + "|" + playlist.last()
         val digest = MessageDigest.getInstance("SHA-1").digest(raw.toByteArray(Charsets.UTF_8))
         return digest.joinToString("") { "%02x".format(it) }.take(16)
-    }
-
-    private fun loadPick(fp: String, seasons: List<Int>): Int? {
-        if (cachedPickFor != fp) {
-            cachedPickFor = fp
-            cachedPick = cache.getPick(fp)
-        }
-        return cachedPick?.takeIf { it in seasons }
     }
 
     private fun currentUndo(): SkipUndo? {

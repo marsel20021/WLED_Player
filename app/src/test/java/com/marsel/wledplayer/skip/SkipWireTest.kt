@@ -12,6 +12,13 @@ class SkipWireTest {
         assertTrue(o.isNull("offer"))
         assertTrue(o.isNull("undo"))
         assertTrue(o.isNull("seasonChoice"))
+        assertEquals(false, o.getBoolean("seasonsUnavailable"))
+    }
+
+    @Test
+    fun `сезоны не загрузились - телефон узнаёт об этом`() {
+        val o = SkipWire.toJson(SkipUiState(seasonsUnavailable = true))
+        assertEquals(true, o.getBoolean("seasonsUnavailable"))
     }
 
     @Test

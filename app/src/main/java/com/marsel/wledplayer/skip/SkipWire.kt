@@ -6,7 +6,7 @@ import org.json.JSONObject
 /**
  * Состояние пропуска для телефона: ТВ присылает его по вебсокету, телефон только показывает кнопку.
  * Формат: {"type":"skipState","offer":{kind,progress,secondsLeft,manual}|null,"undo":{kind}|null,
- *          "seasonChoice":{seasons:[..],selected:n|null}|null}
+ *          "seasonChoice":{seasons:[..],selected:n|null}|null,"seasonsUnavailable":bool}
  */
 object SkipWire {
     const val TYPE = "skipState"
@@ -31,6 +31,7 @@ object SkipWire {
                 .put("seasons", JSONArray(choice.seasons))
                 .put("selected", choice.selected ?: JSONObject.NULL)
         )
+        o.put("seasonsUnavailable", state.seasonsUnavailable)
         return o
     }
 }

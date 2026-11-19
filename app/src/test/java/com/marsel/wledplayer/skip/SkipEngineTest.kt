@@ -155,24 +155,67 @@ class SkipEngineTest {
     }
 
     @Test
-    fun `выбор сезона запоминается для того же плейлиста и сбрасывается для другого`() {
+    fun `выбор сезона держится всю сессию и не спрашивается заново при смене серии`() {
         lookupResult = SeriesLookupResult.Found(SeriesInfo(1, "tt1", "Игра престолов", 2011, mapOf(1 to 10, 2 to 10)))
         val e = engine()
         e.evaluate(input(0, 0))
         e.pickSeason(2)
         assertEquals(2, e.evaluate(input(0, 1_000)).seasonChoice!!.selected)
-        // другой плейлист - выбор нужен заново
-        val other = (1..8).map { "$it серия" }
-        assertNull(e.evaluate(input(0, 2_000, list = other)).seasonChoice!!.selected)
+        // другая серия того же списка: сезон тот же, спрашивать не надо
+        val ui = e.evaluate(input(0, 2_000, title = "5 серия", index = 4))
+        assertEquals(2, ui.seasonChoice!!.selected)
+        assertEquals(Triple("tt1", 2, 5), lastIntroArgs)
     }
 
     @Test
-    fun `сезон назван в названии серии - плашки нет`() {
+    fun `новая сессия спрашивает сезон заново, а другой плейлист сбрасывает выбор`() {
+        lookupResult = SeriesLookupResult.Found(SeriesInfo(1, "tt1", "Игра престолов", 2011, mapOf(1 to 10, 2 to 10)))
+        val e = engine()
+        e.evaluate(input(0, 0))
+        e.pickSeason(2)
+        // другой плейлист - выбор нужен заново
+        val other = (1..8).map { "$it серия" }
+        assertNull(e.evaluate(input(0, 2_000, list = other)).seasonChoice!!.selected)
+        // вышли из плеера: новый движок, на диске выбор не хранится
+        val fresh = engine()
+        assertNull(fresh.evaluate(input(0, 0)).seasonChoice!!.selected)
+    }
+
+    @Test
+    fun `сезон можно сменить в любой момент и сразу виден`() {
+        lookupResult = SeriesLookupResult.Found(SeriesInfo(1, "tt1", "Игра престолов", 2011, mapOf(1 to 10, 2 to 10, 3 to 10)))
+        val e = engine()
+        e.evaluate(input(0, 0))
+        e.pickSeason(1)
+        assertEquals(1, e.currentSeason)
+        e.pickSeason(3)
+        assertEquals(3, e.currentSeason)
+        assertEquals(3, e.evaluate(input(0, 1_000)).seasonChoice!!.selected)
+        assertEquals(Triple("tt1", 3, 3), lastIntroArgs)
+    }
+
+    @Test
+    fun `сезон назван в названии - переключатель есть, выбор человека главнее названия`() {
         lookupResult = SeriesLookupResult.Found(SeriesInfo(1, "tt1", "Игра престолов", 2011, mapOf(1 to 10, 2 to 10)))
         val e = engine()
         val ui = e.evaluate(input(0, 0, title = "2 сезон 3 серия"))
-        assertNull(ui.seasonChoice)
+        assertEquals(2, ui.seasonChoice!!.selected)
         assertEquals(Triple("tt1", 2, 3), lastIntroArgs)
+        e.pickSeason(1)
+        assertEquals(1, e.evaluate(input(0, 1_000, title = "2 сезон 3 серия")).seasonChoice!!.selected)
+        assertEquals(Triple("tt1", 1, 3), lastIntroArgs)
+    }
+
+    @Test
+    fun `сериал не загрузился - экран получает об этом знак`() {
+        lookupResult = SeriesLookupResult.Failed("нет сети")
+        val e = engine()
+        assertEquals(true, e.evaluate(input(0, 0)).seasonsUnavailable)
+        assertNull(e.currentSeason)
+        // сериал найден - знака нет
+        lookupResult = SeriesLookupResult.Found(SeriesInfo(1, "tt1", "Игра престолов", 2011, mapOf(1 to 10, 2 to 10)))
+        val ok = engine()
+        assertEquals(false, ok.evaluate(input(0, 0)).seasonsUnavailable)
     }
 
     @Test
