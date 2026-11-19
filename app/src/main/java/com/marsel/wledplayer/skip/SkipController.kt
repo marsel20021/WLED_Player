@@ -91,6 +91,7 @@ class SkipController(
 
     val currentSeries: SeriesInfo? get() = engine.currentSeries
     val currentSeason: Int? get() = engine.currentSeason
+    val currentTimeline: SkipTimeline? get() = engine.currentTimeline
 
     private fun now(): Long = SystemClock.elapsedRealtime()
 

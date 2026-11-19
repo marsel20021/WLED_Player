@@ -76,6 +76,9 @@ class SkipEngine(
     val currentSeries: SeriesInfo? get() = series
     var currentSeason: Int? = null
         private set
+
+    /** Тайм-коды текущей серии, если уже загружены. */
+    val currentTimeline: SkipTimeline? get() = if (tlState == Load.READY) tlValue else null
     private var seriesState = Load.NONE
     private var seriesRetryAt = 0L
     private var seriesFails = 0

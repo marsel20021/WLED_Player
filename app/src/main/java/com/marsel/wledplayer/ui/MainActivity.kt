@@ -57,6 +57,7 @@ import com.marsel.wledplayer.media.FramesResult
 import com.marsel.wledplayer.media.ImageLoader
 import com.marsel.wledplayer.media.PosterPalette
 import com.marsel.wledplayer.skip.EpisodeParser
+import com.marsel.wledplayer.skip.SegmentMarks
 import com.marsel.wledplayer.skip.SharedPrefsStore
 import com.marsel.wledplayer.skip.SkipHttp
 import com.marsel.wledplayer.ui.overlay.EpisodeItem
@@ -437,7 +438,8 @@ class MainActivity : AppCompatActivity() {
                 durationMs = duration,
                 playing = p.playWhenReady,
                 ledOn = rawBooleanValue(appPrefs, "ambilight_enabled", true),
-                currentIndex = p.currentMediaItemIndex
+                currentIndex = p.currentMediaItemIndex,
+                marks = SegmentMarks.of(skipController?.currentTimeline, duration)
             )
         )
 

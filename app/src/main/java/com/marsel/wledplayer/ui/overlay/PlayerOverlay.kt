@@ -16,6 +16,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import com.marsel.wledplayer.R
+import com.marsel.wledplayer.skip.SegmentMark
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -41,7 +42,8 @@ data class OverlayModel(
     val durationMs: Long,
     val playing: Boolean,
     val ledOn: Boolean,
-    val currentIndex: Int
+    val currentIndex: Int,
+    val marks: List<SegmentMark> = emptyList()
 )
 
 /**
@@ -49,6 +51,7 @@ data class OverlayModel(
  *
  * Пульт: идёт фильм - ничего нет. OK или Вниз - меню. Вниз ещё раз - лента серий. Вверх - назад.
  * Влево/Вправо при скрытом меню перематывают, в меню и ленте двигают фокус.
+ * В меню Вверх переводит фокус на полосу времени, там Влево/Вправо перематывают, Вниз возвращает к кнопкам.
  */
 class PlayerOverlay(
     private val context: Context,
@@ -190,6 +193,7 @@ class PlayerOverlay(
     private val thinFill = View(context).apply { setBackgroundColor(accent) }
 
     init {
+        seekBar.onStep = { delta -> actions.seekBy(delta); scheduleHide() }
         val match = ViewGroup.LayoutParams.MATCH_PARENT
         root.addView(topScrim, FrameLayout.LayoutParams(match, dz.i(340f), Gravity.TOP))
         root.addView(bottomScrim, FrameLayout.LayoutParams(match, dz.i(560f), Gravity.BOTTOM))
@@ -242,6 +246,7 @@ class PlayerOverlay(
         timeCur.text = formatTime(m.positionMs)
         timeTotal.text = formatTime(m.durationMs)
         seekBar.setProgress(m.positionMs, m.durationMs)
+        seekBar.marks = m.marks
         ledBtn.ledOn = m.ledOn
         if (playingChanged) playBtn.setIcon(if (m.playing) R.drawable.ic_pause else R.drawable.ic_play)
         if (m.durationMs > 0) {
@@ -337,7 +342,8 @@ class PlayerOverlay(
             KeyEvent.KEYCODE_DPAD_DOWN -> {
                 if (down) when (mode) {
                     Mode.HIDDEN, Mode.SEEK -> show(Mode.MENU)
-                    Mode.MENU -> show(Mode.EPISODES)
+                    // с полосы времени Вниз возвращает к кнопкам, с кнопок открывает ленту серий
+                    Mode.MENU -> if (seekBar.isFocused) { playBtn.requestFocus(); scheduleHide() } else show(Mode.EPISODES)
                     Mode.EPISODES -> scheduleHide()
                 }
                 return true
@@ -345,7 +351,9 @@ class PlayerOverlay(
             KeyEvent.KEYCODE_DPAD_UP -> {
                 if (down) when (mode) {
                     Mode.EPISODES -> show(Mode.MENU)
-                    Mode.MENU, Mode.SEEK -> hide()
+                    // Вверх из меню переводит на полосу времени (перемотка Влево/Вправо), меню не закрывает
+                    Mode.MENU -> { seekBar.requestFocus(); scheduleHide() }
+                    Mode.SEEK -> hide()
                     Mode.HIDDEN -> {}
                 }
                 return true
