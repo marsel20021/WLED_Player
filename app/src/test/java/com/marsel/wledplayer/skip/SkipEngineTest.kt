@@ -69,6 +69,27 @@ class SkipEngineTest {
         list, now
     )
 
+    /**
+     * Обычное воспроизведение с нуля: позиция и время идут вместе по секунде, без перемоток.
+     * Прыжок позиции решатель считает перемоткой человека, поэтому до нужного места идём шагами.
+     */
+    private fun walk(
+        e: SkipEngine,
+        to: Long,
+        stop: () -> Boolean = { false },
+        mk: (Long, Long) -> SkipInput = { p, n -> input(p, n) }
+    ): SkipUiState {
+        var p = 0L
+        var ui = e.evaluate(mk(0, 0))
+        while (p < to && !stop()) {
+            p += 1_000
+            ui = e.evaluate(mk(p, p))
+        }
+        lastWalkNow = p
+        return ui
+    }
+    private var lastWalkNow = 0L
+
     @Test
     fun `фильм - один файл в плейлисте - ничего не запрашиваем`() {
         val e = engine()
@@ -98,12 +119,10 @@ class SkipEngineTest {
     @Test
     fun `один сезон - плашки нет, заставка пропускается сама`() {
         val e = engine()
-        var ui = e.evaluate(input(0, 0))
-        assertNull(ui.seasonChoice)
+        val ui0 = e.evaluate(input(0, 0))
+        assertNull(ui0.seasonChoice)
         assertEquals(Triple("tt0944947", 1, 3), lastIntroArgs)
-        ui = e.evaluate(input(100_000, 3_000))
-        assertEquals(3, ui.offer!!.secondsLeft)
-        ui = e.evaluate(input(103_000, 6_000))
+        val ui = walk(e, 90_000, stop = { actions.seeks.isNotEmpty() })
         assertEquals(listOf(170_000L), actions.seeks)
         assertNotNull(ui.undo)
     }
@@ -161,11 +180,12 @@ class SkipEngineTest {
         lookupResult = SeriesLookupResult.Found(SeriesInfo(1, "tt1", "Аниме", 2020, mapOf(1 to 12, 2 to 12)))
         val e = engine()
         val list = (1..24).map { "$it серия" }
-        e.evaluate(input(0, 0, title = "15 серия", movie = "Аниме", index = 14, list = list))
+        val mk = { p: Long, n: Long -> input(p, n, title = "15 серия", movie = "Аниме", index = 14, list = list) }
+        e.evaluate(mk(0, 0))
         e.pickSeason(2)
-        e.evaluate(input(0, 500, title = "15 серия", movie = "Аниме", index = 14, list = list))
+        e.evaluate(mk(0, 500))
         assertEquals(Triple("tt1", 2, 15), lastIntroArgs)
-        val ui = e.evaluate(input(100_000, 5_000, title = "15 серия", movie = "Аниме", index = 14, list = list))
+        val ui = walk(e, 82_000, mk = mk)
         assertNotNull(ui.offer)
     }
 
@@ -258,25 +278,24 @@ class SkipEngineTest {
     @Test
     fun `вернуть - перематывает к началу заставки`() {
         val e = engine()
-        e.evaluate(input(0, 0))
-        e.evaluate(input(100_000, 3_000))
-        e.evaluate(input(103_000, 6_000))
+        walk(e, 90_000, stop = { actions.seeks.isNotEmpty() })
         assertEquals(listOf(170_000L), actions.seeks)
-        e.undo(8_000)
+        val t = lastWalkNow
+        e.undo(t + 1_000)
         assertEquals(listOf(170_000L, 80_000L), actions.seeks)
-        // после возврата заставку заново не предлагаем
-        e.evaluate(input(80_000, 12_000))
-        val ui = e.evaluate(input(81_000, 13_000))
-        assertNull(ui.offer)
+        // после возврата автоскипа заново нет: только кнопка вручную, когда пройдёт секунда
+        e.evaluate(input(80_000, t + 1_500))
+        e.evaluate(input(80_500, t + 2_000))
+        val ui = e.evaluate(input(81_500, t + 3_000))
+        assertEquals(2, actions.seeks.size)
+        assertTrue(ui.offer!!.manual)
     }
 
     @Test
     fun `вернуть поздно - не работает`() {
         val e = engine()
-        e.evaluate(input(0, 0))
-        e.evaluate(input(100_000, 3_000))
-        e.evaluate(input(103_000, 6_000))
-        e.undo(6_000 + SkipEngine.UNDO_MS + 1)
+        walk(e, 90_000, stop = { actions.seeks.isNotEmpty() })
+        e.undo(lastWalkNow + SkipEngine.UNDO_MS + 1)
         assertEquals(1, actions.seeks.size)
     }
 
@@ -297,10 +316,8 @@ class SkipEngineTest {
             SkipTimeline(listOf(SkipSegment(SkipKind.CREDITS, 1_332_000, null, 3, "T")))
         )
         val e = engine()
-        e.evaluate(input(0, 0, index = 9, title = "10 серия"))
-        val ui = e.evaluate(input(1_340_000, 3_000, index = 9, title = "10 серия"))
+        val ui = walk(e, 1_345_000) { p, n -> input(p, n, index = 9, title = "10 серия") }
         assertNull(ui.offer)
-        e.evaluate(input(1_343_000, 6_000, index = 9, title = "10 серия"))
         assertTrue(actions.seeks.isEmpty())
         assertEquals(0, actions.nextCount)
     }
@@ -311,9 +328,7 @@ class SkipEngineTest {
             SkipTimeline(listOf(SkipSegment(SkipKind.CREDITS, 1_332_000, null, 3, "T")))
         )
         val e = engine()
-        e.evaluate(input(0, 0))
-        e.evaluate(input(1_340_000, 3_000))
-        e.evaluate(input(1_343_000, 6_000))
+        walk(e, 1_345_000, stop = { actions.nextCount > 0 })
         assertEquals(1, actions.nextCount)
         assertTrue(actions.seeks.isEmpty())
     }

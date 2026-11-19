@@ -78,7 +78,7 @@ class IntroParserTest {
         assertTrue(IntroParser.needsSecond(null))
         assertTrue(IntroParser.needsSecond(IntroParser.parseTheIntroDb(theIntro))) // титры без конца
         val full = IntroParser.parseTheIntroDb(
-            """{"intro":[{"start_ms":0,"end_ms":80000}],"credits":[{"start_ms":1300000,"end_ms":1400000}]}"""
+            """{"recap":[{"start_ms":0,"end_ms":30000}],"intro":[{"start_ms":30000,"end_ms":80000}],"credits":[{"start_ms":1300000,"end_ms":1400000}]}"""
         )
         assertFalse(IntroParser.needsSecond(full))
     }
