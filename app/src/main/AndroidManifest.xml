@@ -51,7 +51,7 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".ui.SettingsActivity" android:theme="@style/Theme.AppCompat.DayNight" />
+        <activity android:name=".ui.SettingsActivity" android:theme="@style/Theme.WLEDPlayer.Settings" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

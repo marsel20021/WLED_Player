@@ -154,7 +154,7 @@ class MainActivity : AppCompatActivity() {
 
         override fun openSettings() {
             openingSettings = true // уход в настройки - это не выключение ТВ
-            startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
+            startActivity(Intent(this@MainActivity, SettingsActivity::class.java).putExtra(SettingsActivity.EXTRA_ACCENT, overlay.currentAccent))
         }
 
         override fun openAudio() {

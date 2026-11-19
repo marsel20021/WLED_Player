@@ -66,6 +66,7 @@ class PlayerOverlay(
     private val clockFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
 
     private var accent = UiColors.DEFAULT_ACCENT
+    val currentAccent: Int get() = accent
     private var model = OverlayModel("", "", 0, 0, false, true, 0)
     private var skipShown = false
     private var episodeItems: List<EpisodeItem> = emptyList()
