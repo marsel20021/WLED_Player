@@ -379,7 +379,7 @@ class PlayerOverlay(
         if (repeat > 0 && now - lastScrubAt < SCRUB_REPEAT_MS) return
         lastScrubAt = now
         val base = if (scrubTarget >= 0) scrubTarget else model.positionMs
-        scrubTarget = SeekScrub.next(base, dir, dur)
+        scrubTarget = SeekScrub.next(base, dir, repeat, dur)
         displayPos = scrubTarget
         displayUntil = Long.MAX_VALUE
         seekBar.setProgress(scrubTarget, dur)
