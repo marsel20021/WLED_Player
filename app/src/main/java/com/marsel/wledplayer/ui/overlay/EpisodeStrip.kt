@@ -55,6 +55,14 @@ class EpisodeStrip(
         episodeAdapter.notifyDataSetChanged()
     }
 
+    /** Влево/Вправо не уводят фокус с ленты: на краях ничего не происходит (на плашку сезона идёт только Вверх). */
+    override fun focusSearch(focused: View, direction: Int): View? {
+        val next = super.focusSearch(focused, direction)
+        val sideways = direction == FOCUS_LEFT || direction == FOCUS_RIGHT
+        if (sideways && (next == null || findContainingViewHolder(next) == null)) return focused
+        return next
+    }
+
     /** Ставит фокус на текущую серию (после появления ленты на экране). */
     fun focusCurrent(attempt: Int = 0) {
         val pos = items.indexOfFirst { it.index == currentIndex }.coerceAtLeast(0)
