@@ -113,6 +113,7 @@ class EpisodeFrames(
         const val NO_DATA_TTL_MS = 2 * DAY_MS
         private const val MAX_ENTRIES = 60
         private const val KITSU_PAGE = 20
+        private val KITSU_HEADERS = mapOf("Accept" to "application/vnd.api+json")
         private const val KITSU_MAX_PAGES = 5
     }
 
@@ -157,7 +158,7 @@ class EpisodeFrames(
         try {
             val cands = LinkedHashMap<String, KitsuAnime>()
             for (t in titles.filter { it.isNotBlank() }.distinct().take(3)) {
-                val r = http("https://kitsu.io/api/edge/anime?filter%5Btext%5D=${URLEncoder.encode(t, "UTF-8")}&page%5Blimit%5D=8", emptyMap())
+                val r = http("https://kitsu.io/api/edge/anime?filter%5Btext%5D=${URLEncoder.encode(t, "UTF-8")}&page%5Blimit%5D=8", KITSU_HEADERS)
                 if (r.code !in 200..299) return null
                 FrameParser.parseKitsuSearch(r.body).forEach { cands.putIfAbsent(it.id, it) }
             }
@@ -166,7 +167,7 @@ class EpisodeFrames(
             for (page in 0 until KITSU_MAX_PAGES) {
                 val r = http(
                     "https://kitsu.io/api/edge/anime/${pick.id}/episodes?sort=number&page%5Blimit%5D=$KITSU_PAGE&page%5Boffset%5D=${page * KITSU_PAGE}",
-                    emptyMap()
+                    KITSU_HEADERS
                 )
                 if (r.code !in 200..299) return null
                 val part = FrameParser.parseKitsuEpisodes(r.body)

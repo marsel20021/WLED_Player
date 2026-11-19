@@ -11,14 +11,17 @@ import android.os.SystemClock
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
-import android.widget.Button
-import android.widget.TextView
+import android.widget.FrameLayout
 import android.widget.Toast
+import android.os.Handler
+import android.os.Looper
+import java.util.concurrent.Executors
 import androidx.activity.OnBackPressedCallback
 import androidx.annotation.OptIn
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.media3.common.C
 import androidx.media3.common.ColorInfo
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
@@ -45,7 +48,19 @@ import io.ktor.server.routing.get
 import io.ktor.server.response.respondText
 import io.ktor.http.ContentType
 import io.ktor.server.application.call
+import com.marsel.wledplayer.BuildConfig
 import com.marsel.wledplayer.R
+import com.marsel.wledplayer.audio.AudioTrackController
+import com.marsel.wledplayer.media.EpisodeFrame
+import com.marsel.wledplayer.media.EpisodeFrames
+import com.marsel.wledplayer.media.FramesResult
+import com.marsel.wledplayer.skip.EpisodeParser
+import com.marsel.wledplayer.skip.SharedPrefsStore
+import com.marsel.wledplayer.skip.SkipHttp
+import com.marsel.wledplayer.ui.overlay.EpisodeItem
+import com.marsel.wledplayer.ui.overlay.OverlayActions
+import com.marsel.wledplayer.ui.overlay.OverlayModel
+import com.marsel.wledplayer.ui.overlay.PlayerOverlay
 import com.marsel.wledplayer.ambilight.AmbilightController
 import com.marsel.wledplayer.audio.SmartAudioController
 import com.marsel.wledplayer.data.rawBooleanValue
@@ -75,10 +90,74 @@ class MainActivity : AppCompatActivity() {
 
     // Автопропуск заставок
     private var skipController: SkipController? = null
-    private lateinit var skipButton: TextView
     private var okConsumed = false
     private var seasonDialog: AlertDialog? = null
     private var seasonDialogFor: String? = null
+
+    // Экран поверх видео (меню, лента серий, кнопка пропуска)
+    private lateinit var overlay: PlayerOverlay
+    private val uiHandler = Handler(Looper.getMainLooper())
+    private val uiTick = object : Runnable {
+        override fun run() {
+            updateOverlay()
+            uiHandler.postDelayed(this, 500)
+        }
+    }
+
+    // Кадры серий: грузим один раз на сезон, в кэше лежат 30 дней
+    private val frameIo = Executors.newSingleThreadExecutor()
+    private val framesRepo by lazy {
+        EpisodeFrames(BuildConfig.KINOPOISKDEV_TOKEN, SharedPrefsStore(this, "frames_cache"), { url, headers -> SkipHttp.get(url, headers) })
+    }
+    private var framesFor: String? = null
+    private var framesRetryAt = 0L
+    private var frames: List<EpisodeFrame> = emptyList()
+    private var episodesKey: String? = null
+    private val audioTrackController by lazy { AudioTrackController(this) }
+
+    private val overlayActions = object : OverlayActions {
+        override fun playPause() {
+            player?.let { if (it.isPlaying || it.playWhenReady) it.pause() else it.play() }
+        }
+
+        override fun setPlaying(play: Boolean) {
+            player?.let { if (play) it.play() else it.pause() }
+        }
+
+        override fun seekBy(deltaMs: Long) {
+            val p = player ?: return
+            var target = p.currentPosition + deltaMs
+            val dur = p.duration
+            if (dur != C.TIME_UNSET && dur > 0) target = target.coerceAtMost(dur - 1000)
+            p.seekTo(target.coerceAtLeast(0L))
+        }
+
+        override fun prev() { player?.seekToPreviousMediaItem() }
+        override fun next() { player?.seekToNextMediaItem() }
+
+        override fun playIndex(index: Int) {
+            val p = player ?: return
+            if (index in 0 until p.mediaItemCount) {
+                p.seekTo(index, 0L)
+                p.play()
+            }
+        }
+
+        override fun toggleLed() {
+            val on = rawBooleanValue(appPrefs, "ambilight_enabled", true)
+            appPrefs.edit().putBoolean("ambilight_enabled", !on).apply()
+            updateOverlay()
+        }
+
+        override fun openSettings() {
+            openingSettings = true // уход в настройки - это не выключение ТВ
+            startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
+        }
+
+        override fun openAudio() {
+            player?.let { audioTrackController.show(it) }
+        }
+    }
 
     // Название фильма (extra "title" от Vokino) и сводка extras - уходят на пульт для поиска постера
     private var movieTitle: String? = null
@@ -135,20 +214,7 @@ class MainActivity : AppCompatActivity() {
 
         playerViewTexture = findViewById(R.id.playerViewTexture)
         playerViewSurface = findViewById(R.id.playerViewSurface)
-        val btnSettings = findViewById<Button>(R.id.btnSettings)
-        skipButton = findViewById(R.id.skipButton)
-        skipButton.setOnClickListener { skipPressed() }
-
-        btnSettings.setOnClickListener {
-            openingSettings = true // уход в настройки - это не выключение ТВ
-            startActivity(Intent(this, SettingsActivity::class.java))
-        }
-
-        val visibilityListener = PlayerView.ControllerVisibilityListener { visibility ->
-            btnSettings.visibility = visibility
-        }
-        playerViewTexture.setControllerVisibilityListener(visibilityListener)
-        playerViewSurface.setControllerVisibilityListener(visibilityListener)
+        overlay = PlayerOverlay(this, findViewById<FrameLayout>(R.id.overlayRoot), overlayActions)
 
         ambilightController = AmbilightController(this, playerViewTexture, appPrefs)
         playlistController = PlaylistController(this)
@@ -161,11 +227,10 @@ class MainActivity : AppCompatActivity() {
                     skipController?.cancel()
                     return
                 }
-                // 1) Панель видна - «назад» просто прячет её (и кнопку настроек).
-                // 2) Панели нет - первое «назад» просит подтверждение, второе (в течение 2 с) закрывает плеер.
-                val activeView = if (playerViewSurface.visibility == View.VISIBLE) playerViewSurface else playerViewTexture
-                if (activeView.isControllerFullyVisible) {
-                    activeView.hideController()
+                // 1) Меню или лента на экране - «назад» прячет их.
+                // 2) Ничего нет - первое «назад» просит подтверждение, второе (в течение 2 с) закрывает плеер.
+                if (overlay.mode != PlayerOverlay.Mode.HIDDEN) {
+                    overlay.hide()
                     return
                 }
                 val now = SystemClock.elapsedRealtime()
@@ -181,6 +246,7 @@ class MainActivity : AppCompatActivity() {
         registerScreenOffReceiver()
 
         initializePlayer(intent)
+        uiHandler.post(uiTick)
         ambilightController.start()
         AppUpdater(this).check()
         startRemoteServer()
@@ -232,6 +298,13 @@ class MainActivity : AppCompatActivity() {
             override fun onVideoSizeChanged(videoSize: VideoSize) {
                 updatePlayerSurfaceMode()
             }
+
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                // Поставили на паузу - показываем меню, чтобы было видно время и кнопки
+                if (!playWhenReady && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST && !isFinishing) {
+                    overlay.show(PlayerOverlay.Mode.MENU)
+                }
+            }
         })
 
         playerViewTexture.player = player
@@ -273,15 +346,14 @@ class MainActivity : AppCompatActivity() {
                     SkipKind.RECAP -> "пересказ"
                     SkipKind.CREDITS -> "титры"
                 }
-                skipButton.text = if (offer.manual) "Пропустить $what" else "Пропустить $what · ${offer.secondsLeft}"
-                skipButton.visibility = View.VISIBLE
+                val text = if (offer.manual) "Пропустить $what" else "Пропустить $what · ${offer.secondsLeft}"
+                overlay.setSkip(text, if (offer.manual) 0f else offer.progress, true)
             }
-            state.undo != null -> {
-                skipButton.text = "Вернуть"
-                skipButton.visibility = View.VISIBLE
-            }
-            else -> skipButton.visibility = View.GONE
+            state.undo != null -> overlay.setSkip("Вернуть", 0f, false)
+            else -> overlay.setSkip(null, 0f, true)
         }
+
+        maybeLoadFrames()
 
         // Сезон не удалось определить: спрашиваем один раз для этого списка серий
         val choice = state.seasonChoice
@@ -299,7 +371,77 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // OK на пульте: если на экране кнопка пропуска (или «Вернуть»), нажимает её, иначе работает как обычно
+    /** Когда стал известен сериал и сезон - один раз грузим кадры серий. */
+    private fun maybeLoadFrames() {
+        val c = skipController ?: return
+        val info = c.currentSeries ?: return
+        val season = c.currentSeason ?: return
+        val key = "${info.kinopoiskId}:$season"
+        if (key == framesFor) return
+        if (SystemClock.elapsedRealtime() < framesRetryAt) return
+        framesFor = key
+        frames = emptyList()
+        val titles = listOfNotNull(info.title, movieTitle)
+        frameIo.execute {
+            val result = try {
+                framesRepo.load(info.kinopoiskId, titles, info.year, season)
+            } catch (e: Exception) {
+                FramesResult.Failed
+            }
+            runOnUiThread {
+                if (isFinishing || framesFor != key) return@runOnUiThread
+                when (result) {
+                    is FramesResult.Found -> frames = result.frames
+                    FramesResult.NoData -> {}
+                    FramesResult.Failed -> {
+                        // сеть не ответила: попробуем снова через минуту
+                        framesFor = null
+                        framesRetryAt = SystemClock.elapsedRealtime() + 60_000
+                    }
+                }
+                episodesKey = null
+            }
+        }
+    }
+
+    /** Раз в полсекунды отдаёт экрану состояние плеера. */
+    private fun updateOverlay() {
+        val p = player ?: return
+        val itemTitle = p.mediaMetadata.title?.toString().orEmpty()
+        val ref = EpisodeParser.parse(itemTitle)
+        val season = skipController?.currentSeason ?: ref?.season
+        val subtitle = if (ref != null) (season?.let { "Сезон $it · " } ?: "") + "Серия ${ref.episode}" else ""
+        val title = movieTitle?.takeIf { it.isNotBlank() } ?: itemTitle
+        val duration = p.duration.takeIf { it != C.TIME_UNSET && it > 0 } ?: 0L
+        overlay.update(
+            OverlayModel(
+                title = title,
+                subtitle = subtitle,
+                positionMs = p.currentPosition,
+                durationMs = duration,
+                playing = p.playWhenReady,
+                ledOn = rawBooleanValue(appPrefs, "ambilight_enabled", true),
+                currentIndex = p.currentMediaItemIndex
+            )
+        )
+
+        // Список серий для ленты: пересобираем, только если что-то поменялось
+        val key = "${p.mediaItemCount}|$framesFor|${frames.size}|$season"
+        if (key != episodesKey) {
+            episodesKey = key
+            val byNumber = frames.associateBy { it.number }
+            val items = (0 until p.mediaItemCount).map { i ->
+                val t = p.getMediaItemAt(i).mediaMetadata.title?.toString() ?: "Видео ${i + 1}"
+                val num = EpisodeParser.parse(t)?.episode
+                val frame = num?.let { byNumber[it] }
+                EpisodeItem(i, if (num != null) "Серия $num" else t, frame?.name, frame?.imageUrl)
+            }
+            overlay.setEpisodes(items, if (season != null) "Сезон $season" else "")
+        }
+    }
+
+    // OK на пульте: если на экране кнопка пропуска (или «Вернуть») и меню закрыто, нажимает её.
+    // Всё остальное (меню, лента, перемотка) разбирает PlayerOverlay.
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         val isOk = event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER ||
             event.keyCode == KeyEvent.KEYCODE_ENTER ||
@@ -307,7 +449,8 @@ class MainActivity : AppCompatActivity() {
         if (isOk) {
             val state = skipController?.state
             val hasButton = state != null && (state.offer != null || state.undo != null)
-            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 && hasButton && seasonDialog?.isShowing != true) {
+            val menuClosed = overlay.mode == PlayerOverlay.Mode.HIDDEN || overlay.mode == PlayerOverlay.Mode.SEEK
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 && hasButton && menuClosed) {
                 okConsumed = true
                 skipPressed()
                 return true
@@ -317,6 +460,7 @@ class MainActivity : AppCompatActivity() {
                 return true
             }
         }
+        if (overlay.handleKey(event)) return true
         return super.dispatchKeyEvent(event)
     }
 
@@ -367,6 +511,9 @@ class MainActivity : AppCompatActivity() {
             try { unregisterReceiver(it) } catch (e: Exception) { }
         }
         screenOffReceiver = null
+        uiHandler.removeCallbacksAndMessages(null)
+        overlay.release()
+        frameIo.shutdownNow()
         skipController?.stop()
         skipController = null
         seasonDialog?.dismiss()

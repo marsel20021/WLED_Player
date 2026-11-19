@@ -89,6 +89,9 @@ class SkipController(
     fun undo() = engine.undo(now())
     fun pickSeason(season: Int) = engine.pickSeason(season)
 
+    val currentSeries: SeriesInfo? get() = engine.currentSeries
+    val currentSeason: Int? get() = engine.currentSeason
+
     private fun now(): Long = SystemClock.elapsedRealtime()
 
     private fun buildInput(): SkipInput {

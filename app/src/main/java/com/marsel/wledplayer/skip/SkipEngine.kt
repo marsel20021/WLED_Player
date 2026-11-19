@@ -71,6 +71,11 @@ class SkipEngine(
     // сериал
     private var seriesId: String? = null
     private var series: SeriesInfo? = null
+
+    /** Найденный сериал и сезон, нужны экрану, чтобы показать кадры серий. */
+    val currentSeries: SeriesInfo? get() = series
+    var currentSeason: Int? = null
+        private set
     private var seriesState = Load.NONE
     private var seriesRetryAt = 0L
     private var seriesFails = 0
@@ -134,6 +139,7 @@ class SkipEngine(
         val fixedSeason = ctx.ref.season ?: EpisodeParser.findSeason(ctx.movieTitle) ?: seasons.singleOrNull()
         val season = fixedSeason ?: manualPick?.takeIf { it in seasons } ?: loadPick(fp, seasons)
         val choice = if (fixedSeason == null && seasons.size >= 2) SeasonChoice(seasons, season) else null
+        currentSeason = season
         if (season == null) {
             lastSnap = null
             return SkipUiState(seasonChoice = choice)

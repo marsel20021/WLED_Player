@@ -11,7 +11,8 @@
         android:id="@+id/playerViewTexture"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        app:use_controller="true"
+        app:use_controller="false"
+        android:focusable="false"
         app:show_buffering="always"
         app:resize_mode="fit"
         app:surface_type="texture_view" />
@@ -22,43 +23,17 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:visibility="gone"
-        app:use_controller="true"
+        app:use_controller="false"
+        android:focusable="false"
         app:show_buffering="always"
         app:resize_mode="fit"
         app:surface_type="surface_view" />
 
-    <Button
-        android:id="@+id/btnSettings"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|end"
-        android:layout_margin="16dp"
-        android:paddingHorizontal="16dp"
-        android:paddingVertical="8dp"
-        android:text="⚙ WLED"
-        android:backgroundTint="#80000000"
-        android:textColor="#FFFFFF"
-        android:textSize="14sp"
-        android:elevation="0dp"
-        android:stateListAnimator="@null"
-        android:focusable="true"
-        android:focusableInTouchMode="true" />
-
-    <!-- Кнопка пропуска (простая, красивая будет в новом экране). Нажимается кнопкой OK на пульте. -->
-    <TextView
-        android:id="@+id/skipButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_marginEnd="48dp"
-        android:layout_marginBottom="96dp"
-        android:background="@drawable/skip_button_bg"
-        android:paddingHorizontal="28dp"
-        android:paddingVertical="14dp"
-        android:text="Пропустить"
-        android:textColor="#FFFFFF"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:visibility="gone" />
+    <!-- Всё, что рисуется поверх видео: меню, лента серий, кнопка пропуска. Собирается в коде (PlayerOverlay) -->
+    <FrameLayout
+        android:id="@+id/overlayRoot"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipChildren="false" />
 
 </FrameLayout>
