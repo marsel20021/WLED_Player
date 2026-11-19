@@ -27,6 +27,7 @@ class SkipEngineTest {
     private val actions = FakeActions()
 
     private var lookupCalls = 0
+    private var sig = ""
     private var introCalls = 0
     private var lastIntroArgs: Triple<String, Int, Int>? = null
     private var lookupResult: SeriesLookupResult = SeriesLookupResult.Found(
@@ -48,7 +49,8 @@ class SkipEngineTest {
         intro = { imdb, s, e -> introCalls++; lastIntroArgs = Triple(imdb, s, e); introResult },
         runAsync = { it() },
         post = { it() },
-        actions = actions
+        actions = actions,
+        overrideSig = { sig }
     )
 
     private val playlist = (1..10).map { "$it серия" }
@@ -374,5 +376,33 @@ class SkipEngineTest {
         walk(e, 1_345_000, stop = { actions.nextCount > 0 })
         assertEquals(1, actions.nextCount)
         assertTrue(actions.seeks.isEmpty())
+    }
+
+    @Test
+    fun `поправку поменяли - сериал ищем заново, поправку убрали - берём старый кэш`() {
+        val e = engine()
+        e.evaluate(input(100_000, 1_000))
+        e.evaluate(input(100_000, 2_000))
+        assertEquals(1, lookupCalls)
+
+        sig = "1049731|1=170"
+        e.evaluate(input(100_000, 3_000))
+        assertEquals(2, lookupCalls)
+        e.evaluate(input(100_000, 4_000))
+        assertEquals(2, lookupCalls)
+
+        sig = ""
+        e.evaluate(input(100_000, 5_000))
+        assertEquals(2, lookupCalls)
+    }
+
+    @Test
+    fun `другая поправка - другой ключ кэша`() {
+        val e = engine()
+        sig = "1|1=5"
+        e.evaluate(input(100_000, 1_000))
+        sig = "1|1=6"
+        e.evaluate(input(100_000, 2_000))
+        assertEquals(2, lookupCalls)
     }
 }

@@ -96,39 +96,70 @@ object KinopoiskParser {
     } catch (e: JSONException) {
         null
     }
+
+    class Card(val imdbId: String?, val title: String?, val year: Int?, val posterUrl: String?)
+
+    fun parseCard(json: String): Card? = try {
+        val o = JSONObject(json)
+        Card(
+            o.str("imdbId"),
+            o.str("nameRu") ?: o.str("nameEn") ?: o.str("nameOriginal"),
+            o.str("year")?.toIntOrNull(),
+            o.str("posterUrlPreview") ?: o.str("posterUrl")
+        )
+    } catch (e: JSONException) {
+        null
+    }
 }
 
 /** Ищет сериал и его сезоны в Кинопоиске. Токен приходит из сборки (секрет GitHub или local.properties). */
 class SeriesLookup(private val token: String) {
 
-    fun lookup(title: String, year: Int?): SeriesLookupResult {
+    /** override: строка из таблицы поправок. Тогда id берём из неё, а сезоны тоже, если они там заданы. */
+    fun lookup(title: String, year: Int?, override: SeriesOverride? = null): SeriesLookupResult {
         if (token.isBlank()) return SeriesLookupResult.Failed("нет токена Кинопоиска")
         val headers = mapOf("X-API-KEY" to token)
         return try {
-            val search = SkipHttp.get(
-                "$BASE/v2.2/films?keyword=${URLEncoder.encode(title, "UTF-8")}&page=1", headers
-            )
-            failure(search.code)?.let { return it }
-
-            val one = when (val pick = KinopoiskParser.pickSeries(search.body, title, year)) {
-                SeriesPick.None, SeriesPick.Many -> return SeriesLookupResult.NotFound
-                is SeriesPick.One -> pick
+            val one = if (override != null) {
+                SeriesPick.One(override.kinopoiskId, null, override.names.first(), null)
+            } else {
+                val search = SkipHttp.get(
+                    "$BASE/v2.2/films?keyword=${URLEncoder.encode(title, "UTF-8")}&page=1", headers
+                )
+                failure(search.code)?.let { return it }
+                when (val pick = KinopoiskParser.pickSeries(search.body, title, year)) {
+                    SeriesPick.None, SeriesPick.Many -> return SeriesLookupResult.NotFound
+                    is SeriesPick.One -> pick
+                }
             }
 
             var imdb = one.imdbId
-            if (!KinopoiskParser.isImdbId(imdb)) {
+            var name = one.title
+            var itemYear = one.year
+            var poster = one.posterUrl
+            if (override != null || !KinopoiskParser.isImdbId(imdb)) {
                 val card = SkipHttp.get("$BASE/v2.2/films/${one.kinopoiskId}", headers)
+                // неверный id в таблице: такого фильма нет
+                if (override != null && card.code == 404) return SeriesLookupResult.NotFound
                 failure(card.code)?.let { return it }
-                imdb = KinopoiskParser.imdbFromCard(card.body)
+                val c = KinopoiskParser.parseCard(card.body)
+                imdb = c?.imdbId
+                if (override != null && c != null) {
+                    name = c.title ?: name
+                    itemYear = c.year
+                    poster = c.posterUrl
+                }
             }
             if (!KinopoiskParser.isImdbId(imdb)) return SeriesLookupResult.NotFound
 
-            val seasonsResp = SkipHttp.get("$BASE/v2.2/films/${one.kinopoiskId}/seasons", headers)
-            failure(seasonsResp.code)?.let { return it }
-            val counts = KinopoiskParser.parseSeasons(seasonsResp.body)
+            val counts = override?.seasons ?: run {
+                val seasonsResp = SkipHttp.get("$BASE/v2.2/films/${one.kinopoiskId}/seasons", headers)
+                failure(seasonsResp.code)?.let { return it }
+                KinopoiskParser.parseSeasons(seasonsResp.body)
+            }
             if (counts.isEmpty()) return SeriesLookupResult.NotFound
 
-            SeriesLookupResult.Found(SeriesInfo(one.kinopoiskId, imdb!!, one.title, one.year, counts, one.posterUrl))
+            SeriesLookupResult.Found(SeriesInfo(one.kinopoiskId, imdb!!, name, itemYear, counts, poster))
         } catch (e: IOException) {
             SeriesLookupResult.Failed("нет сети: ${e.message}")
         }

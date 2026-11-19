@@ -91,4 +91,17 @@ class KinopoiskParserTest {
         assertEquals(null, KinopoiskParser.imdbFromCard("""{"kinopoiskId":1,"imdbId":null}"""))
         assertEquals(null, KinopoiskParser.imdbFromCard("oops"))
     }
+
+    @Test
+    fun `карточка фильма - название, год, постер и IMDb`() {
+        val c = KinopoiskParser.parseCard(
+            """{"kinopoiskId":1049731,"imdbId":"tt7441658","nameRu":"Чёрный клевер","year":2017,"posterUrlPreview":"http://p"}"""
+        )!!
+        assertEquals("tt7441658", c.imdbId)
+        assertEquals("Чёрный клевер", c.title)
+        assertEquals(2017, c.year)
+        assertEquals("http://p", c.posterUrl)
+        assertEquals(null, KinopoiskParser.parseCard("oops"))
+        assertEquals(null, KinopoiskParser.parseCard("""{"nameRu":null,"nameEn":null}""")!!.title)
+    }
 }

@@ -27,11 +27,14 @@ class SkipController(
     private val io = Executors.newSingleThreadExecutor()
 
     private val series = SeriesLookup(BuildConfig.KINOPOISK_TOKEN)
+    private val overrides = OverridesSource(BuildConfig.OVERRIDES_URL, SharedPrefsStore(context, "skip_overrides"))
+    // таблица качается отдельным потоком, чтобы медленная ссылка не держала поиск сериала
+    private val overridesIo = Executors.newSingleThreadExecutor()
     private val sources = IntroSources()
 
     private val engine = SkipEngine(
         cache = SkipCache(SharedPrefsStore(context)),
-        lookup = { title, year -> series.lookup(title, year) },
+        lookup = { title, year -> series.lookup(title, year, overrides.table.find(title)) },
         intro = { imdb, season, episode -> sources.fetch(imdb, season, episode) },
         runAsync = { job ->
             io.execute {
@@ -47,7 +50,8 @@ class SkipController(
             override fun seekTo(positionMs: Long) = player.seekTo(positionMs)
             override fun skipNext() = player.seekToNextMediaItem()
         },
-        log = { Log.d(TAG, it) }
+        log = { Log.d(TAG, it) },
+        overrideSig = { overrides.table.sig(it) }
     )
 
     /** Последнее состояние, которое отдали экрану. */
@@ -76,12 +80,20 @@ class SkipController(
         if (running) return
         running = true
         handler.post(tick)
+        overridesIo.execute {
+            try {
+                overrides.refresh()
+            } catch (e: Exception) {
+                Log.w(TAG, "таблица поправок не скачалась: ${e.message}")
+            }
+        }
     }
 
     fun stop() {
         running = false
         handler.removeCallbacksAndMessages(null)
         io.shutdownNow()
+        overridesIo.shutdownNow()
     }
 
     fun skipNow() = engine.skipNow(now())

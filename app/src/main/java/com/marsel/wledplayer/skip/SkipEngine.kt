@@ -60,7 +60,9 @@ class SkipEngine(
     private val runAsync: (() -> Unit) -> Unit,
     private val post: (() -> Unit) -> Unit,
     private val actions: SkipActions,
-    private val log: (String) -> Unit = {}
+    private val log: (String) -> Unit = {},
+    /** Подпись поправки из таблицы для этого названия. Пусто, если поправки нет. */
+    private val overrideSig: (title: String) -> String = { "" }
 ) {
     private enum class Load { NONE, LOADING, READY, MISSING, FAILED }
 
@@ -84,6 +86,9 @@ class SkipEngine(
     private var seriesState = Load.NONE
     private var seriesRetryAt = 0L
     private var seriesFails = 0
+    // подпись поправки и ключ кэша, под которыми сейчас ищем сериал
+    private var seriesSig: String? = null
+    private var seriesKeyNow: String? = null
     private var fingerprint: String? = null
     // выбранный человеком сезон живёт только в памяти: вышел из плеера - спросим заново
     private var manualPick: Int? = null
@@ -128,6 +133,17 @@ class SkipEngine(
         if (fp != fingerprint) {
             fingerprint = fp
             manualPick = null
+        }
+
+        // Таблицу поправок скачали или поправили: ищем сериал заново
+        val sig = overrideSig(ctx.query.title)
+        if (sig != seriesSig) {
+            seriesSig = sig
+            series = null
+            seriesState = Load.NONE
+            seriesRetryAt = 0L
+            seriesFails = 0
+            epKey = null
         }
 
         ensureSeries(sid, ctx.query)
@@ -255,7 +271,8 @@ class SkipEngine(
     private fun ensureSeries(sid: String, q: PosterQuery) {
         if (seriesState == Load.FAILED && now >= seriesRetryAt) seriesState = Load.NONE
         if (seriesState != Load.NONE) return
-        val cacheKey = cache.seriesKey(q.title, q.year)
+        val cacheKey = cache.seriesKey(q.title, q.year) + (seriesSig?.takeIf { it.isNotEmpty() }?.let { "|o$it" } ?: "")
+        seriesKeyNow = cacheKey
         when (val c = cache.getSeries(cacheKey)) {
             is Cached.Hit -> {
                 val info = c.value
@@ -277,7 +294,7 @@ class SkipEngine(
     }
 
     private fun onSeries(sid: String, cacheKey: String, result: SeriesLookupResult) {
-        if (sid != seriesId) return
+        if (sid != seriesId || cacheKey != seriesKeyNow) return
         when (result) {
             is SeriesLookupResult.Found -> {
                 cache.putSeries(cacheKey, result.info)
