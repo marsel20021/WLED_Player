@@ -29,7 +29,7 @@ class EpisodeStrip(
 ) : RecyclerView(context) {
 
     var accent: Int = UiColors.DEFAULT_ACCENT
-        set(value) { field = value; episodeAdapter.notifyDataSetChanged() }
+        set(value) { field = value; refreshItems() }
 
     private var items: List<EpisodeItem> = emptyList()
     private var currentIndex = -1
@@ -52,7 +52,20 @@ class EpisodeStrip(
         items = newItems
         currentIndex = current
         currentFraction = fraction
+        refreshItems()
+    }
+
+    /**
+     * Обновляет карточки и возвращает фокус на место.
+     * notifyDataSetChanged отцепляет вью карточки, из-за этого фокус теряется и убегает
+     * на сезоны что сверху, поэтому после обновления ставим фокус обратно на ту же серию.
+     */
+    private fun refreshItems() {
+        val focused = findFocus()?.let { findContainingViewHolder(it)?.adapterPosition } ?: -1
         episodeAdapter.notifyDataSetChanged()
+        if (focused >= 0 && focused < items.size) {
+            post { findViewHolderForAdapterPosition(focused)?.itemView?.requestFocus() }
+        }
     }
 
     /** Влево/Вправо не уводят фокус с ленты: на краях ничего не происходит (на плашку сезона идёт только Вверх). */
