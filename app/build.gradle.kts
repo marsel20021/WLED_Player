@@ -113,4 +113,8 @@ dependencies {
     // Тесты на компьютере. В Android org.json только заглушка, поэтому для тестов берём настоящий
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
+
+    // Robolectric нужен для тестов на фокус: это настоящий Android-фреймворк на JVM
+    testImplementation("org.robolectric:robolectric:4.15.1")
+    testImplementation("androidx.test:core:1.6.1")
 }
